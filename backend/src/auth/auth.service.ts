@@ -62,6 +62,8 @@ export class AuthService {
     const ok = await bcrypt.compare(password || '', hash);
     if (username?.trim().toLowerCase() !== expectedUser.toLowerCase() || !ok) {
       this.fail(ip);
+      // fail2ban shu qatorni o'qib IP'ni firewall darajasida bloklaydi.
+      this.log.warn(`KIRISH XATO: ${ip}`);
       throw new UnauthorizedException('Login yoki parol noto`g`ri.');
     }
 
