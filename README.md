@@ -19,6 +19,8 @@ xizmatlar, hujumlar va trafik.
 | **Xizmatlar** | systemd xizmatlari: holat, xotira, qayta ishga tushishlar soni, jonli loglar |
 | **Xavfsizlik** | Hujum urinishlari, qaysi IP'dan, **qanday turdagi hujum** (oddiy tilda tushuntirilgan), bloklangan manzillar, firewall qoidalari, SSH sozlamasi |
 | **Trafik** | Domenlar bo'yicha so'rovlar, javob kodlari, eng ko'p so'rov yuborgan IP'lar, ochiq portlar |
+| **Jonli loglar** | Istalgan systemd xizmati yoki docker konteynerining logi real vaqtda oqadi (`journalctl -f` / `docker logs -f`); matn bo'yicha filtr va pauza |
+| **Joylashtirish** | GitHub'ga push qilinganda avtomatik deploy; loglar jonli oqadi; tarix va qo'lda ishga tushirish tugmasi |
 
 ## Xavfsizlik tamoyili
 
@@ -82,6 +84,51 @@ server-controller.niskandarov.uz {
     }
 }
 ```
+
+## Avtomatik joylashtirish (CI/CD)
+
+`main` tarmog'iga push qilinganda GitHub shu serverga webhook yuboradi,
+server o'zi kodni tortib olib qayta yig'adi va xizmatni qayta ishga
+tushiradi. Loglar panelning **Joylashtirish** bo'limida jonli oqadi.
+
+**Nega GitHub Actions emas:** Actions daqiqalari hisobga bog'liq va
+to'lov muammosi bo'lsa umuman ishga tushmaydi. Webhook bepul va push
+bo'lishi bilan darhol keladi.
+
+**Nega SSH kaliti GitHub'da saqlanmaydi:** server o'zi tortadi, GitHub
+faqat «yangilanish bor» deb aytadi. Shu sabab GitHub hisobi buzilsa ham
+u orqali serverga kirish imkoni ochilmaydi.
+
+### Sozlash
+
+Har bir repoda **Settings → Webhooks → Add webhook**:
+
+| Maydon | Qiymat |
+|---|---|
+| Payload URL | `https://server-controller.niskandarov.uz/api/deploy/hook/<loyiha>` |
+| Content type | `application/json` |
+| Secret | `.env` dagi `DEPLOY_SECRET` |
+| Events | Just the push event |
+
+`<loyiha>` — `deploy.service.ts` dagi `targets` ro'yxatidan: `hisobchi`,
+`hisobchim-admin`, `server-controller`.
+
+### Himoya
+
+- Imzo `X-Hub-Signature-256` bo'yicha, **xom tana** ustidan tekshiriladi
+  (JSON qayta yig'ilsa imzo mos kelmaydi)
+- Taqqoslash doimiy vaqtda — imzoni belgima-belgi topib bo'lmaydi
+- Faqat `main` tarmog'i joylashtiriladi
+- Skript yo'li ro'yxatdan olinadi — tashqi matn hech qachon buyruqqa
+  aylanmaydi
+- Bir loyiha uchun bir vaqtda bitta joylashtirish
+
+### Deploy skripti nima qiladi
+
+`deploy/<loyiha>.sh` ichida. Muhim tartib: **avval zaxira, keyin
+sintaksis tekshiruvi, undan keyingina qayta ishga tushirish** — buzuq
+kod push qilinsa xizmat qayta ishga tushmaydi va eski versiya ishlab
+turaveradi.
 
 ## Ishlab chiqish
 
