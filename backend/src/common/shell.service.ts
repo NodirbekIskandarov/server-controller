@@ -39,6 +39,30 @@ export class ShellService {
     }
   }
 
+  /**
+   * Ikkala oqimni ham qaytaradi.
+   *
+   * Kerak bo'ladigan joy: `docker logs`. Konteyner stderr'ga yozsa
+   * (Caddy access loglari aynan shunday), faqat stdout o'qilsa ma'lumot
+   * yo'qoladi.
+   */
+  async execBoth(
+    cmd: string,
+    args: string[] = [],
+    timeoutMs = 30_000,
+  ): Promise<string> {
+    try {
+      const { stdout, stderr } = await run(cmd, args, {
+        timeout: timeoutMs,
+        maxBuffer: 24 * 1024 * 1024,
+        env: { ...process.env, LANG: 'C', LC_ALL: 'C' },
+      });
+      return (stdout || '') + (stderr || '');
+    } catch (err: any) {
+      return (err?.stdout || '') + (err?.stderr || '');
+    }
+  }
+
   /** Chiqishni qatorlarga bo'ladi, bo'shlarini tashlaydi. */
   lines(text: string): string[] {
     return text

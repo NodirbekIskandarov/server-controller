@@ -46,10 +46,11 @@ export class TrafficService {
       return this.empty('Caddy konteyneri topilmadi');
     }
 
-    const raw = await this.shell.exec(
+    // Caddy access loglari stderr'ga chiqadi — ikkala oqimni ham olamiz.
+    const raw = await this.shell.execBoth(
       'docker',
       ['logs', '--since', `${minutes}m`, '--tail', '20000', container],
-      30_000,
+      40_000,
     );
 
     const byDomain = new Map<string, DomainStat>();

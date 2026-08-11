@@ -15,6 +15,9 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: false,
+    // GitHub webhook imzosi xom tana ustidan hisoblanadi — Nest uni
+    // saqlab qo'yishi kerak.
+    rawBody: true,
   });
 
   // Caddy orqasida ishlaydi — haqiqiy IP sarlavhadan olinadi.
