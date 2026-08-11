@@ -1,0 +1,32 @@
+[Unit]
+Description=Server nazorati — real vaqtdagi kuzatuv paneli
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Tizim ma'lumotini o'qish uchun root kerak: journalctl, docker, ufw,
+# fail2ban va boshqa foydalanuvchilarning kataloglari.
+# Ilova FAQAT O'QIYDI — hech qanday o'zgartiruvchi buyruq yo'q.
+User=root
+Group=root
+WorkingDirectory=/opt/server-controller/backend
+EnvironmentFile=/opt/server-controller/backend/.env
+ExecStart=/usr/bin/node dist/main.js
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+# Faqat o'z katalogiga yozadi
+ReadWritePaths=/opt/server-controller
+
+[Install]
+WantedBy=multi-user.target
