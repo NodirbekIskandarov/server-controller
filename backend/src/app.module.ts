@@ -17,6 +17,10 @@ import { RealtimeService } from './realtime/realtime.service';
 import { RealtimeController } from './realtime/realtime.controller';
 import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
+import { DeployService } from './deploy/deploy.service';
+import { DeployController } from './deploy/deploy.controller';
+import { LogsService } from './logs/logs.service';
+import { LogsController } from './logs/logs.controller';
 import { AppController } from './app.controller';
 
 @Module({
@@ -39,7 +43,13 @@ import { AppController } from './app.controller';
       serveStaticOptions: { index: 'index.html', fallthrough: true },
     }),
   ],
-  controllers: [AppController, AuthController, RealtimeController],
+  controllers: [
+    AppController,
+    AuthController,
+    RealtimeController,
+    DeployController,
+    LogsController,
+  ],
   providers: [
     ShellService,
     SystemService,
@@ -49,6 +59,8 @@ import { AppController } from './app.controller';
     SecurityService,
     TrafficService,
     RealtimeService,
+    DeployService,
+    LogsService,
     AuthService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],

@@ -10,6 +10,8 @@ import Docker from "./pages/Docker";
 import Services from "./pages/Services";
 import Security from "./pages/Security";
 import Traffic from "./pages/Traffic";
+import Deploy from "./pages/Deploy";
+import Logs from "./pages/Logs";
 
 export default function App() {
   useSessionQuery();
@@ -33,6 +35,8 @@ export default function App() {
         <Route path="/xizmatlar" element={<Services />} />
         <Route path="/xavfsizlik" element={<Security />} />
         <Route path="/trafik" element={<Traffic />} />
+        <Route path="/deploy" element={<Deploy />} />
+        <Route path="/loglar" element={<Logs />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

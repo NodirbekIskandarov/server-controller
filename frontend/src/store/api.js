@@ -17,7 +17,10 @@ const withAuth = async (args, api, extra) => {
 export const api = createApi({
   reducerPath: "api",
   baseQuery: withAuth,
-  tagTypes: ["Session", "Projects", "Docker", "Services", "Security", "Traffic"],
+  tagTypes: [
+    "Session", "Projects", "Docker", "Services", "Security", "Traffic",
+    "Deploy",
+  ],
   // Kuzatuv panelida ma'lumot eskirmasligi kerak.
   keepUnusedDataFor: 30,
   endpoints: (build) => ({
@@ -46,6 +49,16 @@ export const api = createApi({
       query: (minutes = 60) => `/traffic?daqiqa=${minutes}`,
       providesTags: ["Traffic"],
     }),
+
+    deployList: build.query({ query: () => "/deploy", providesTags: ["Deploy"] }),
+    triggerDeploy: build.mutation({
+      query: ({ project, izoh }) => ({
+        url: `/deploy/${project}`,
+        method: "POST",
+        body: { izoh },
+      }),
+      invalidatesTags: ["Deploy"],
+    }),
   }),
 });
 
@@ -53,4 +66,5 @@ export const {
   useSessionQuery, useLoginMutation, useLogoutMutation,
   useSystemQuery, useProjectsQuery, useDockerQuery, useServicesQuery,
   useServiceLogsQuery, useSecurityQuery, useTrafficQuery,
+  useDeployListQuery, useTriggerDeployMutation,
 } = api;

@@ -11,6 +11,8 @@ const NAV = [
   { to: "/xizmatlar", icon: "⚙️", label: "Xizmatlar" },
   { to: "/xavfsizlik", icon: "🛡", label: "Xavfsizlik", badge: true },
   { to: "/trafik", icon: "🌐", label: "Trafik" },
+  { to: "/loglar", icon: "📜", label: "Jonli loglar" },
+  { to: "/deploy", icon: "🚀", label: "Joylashtirish" },
 ];
 
 const TITLES = {
@@ -20,6 +22,8 @@ const TITLES = {
   "/xizmatlar": "Tizim xizmatlari",
   "/xavfsizlik": "Xavfsizlik va hujumlar",
   "/trafik": "Tarmoq trafigi",
+  "/loglar": "Jonli loglar",
+  "/deploy": "Avtomatik joylashtirish",
 };
 
 export default function Layout() {
