@@ -1,219 +1,393 @@
+import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";
-import Alerts from "../components/Alerts";
-import Sparkline from "../components/Sparkline";
-import { Card, Gauge, Kpi, Loading, Tag } from "../components/common";
-import { bytes, duration, loadColor, num, perSec, pct } from "../lib/format";
+import { useProjectsQuery, useSecurityQuery, useTrafficQuery } from "../store/api";
+import { BigChart, Spark, Trend } from "../components/Spark";
+import { useTail, parseLine } from "../components/useTail";
+import { collectAlerts, sevKind, useRules } from "../components/Alerts";
+import {
+  Bar, Card, Empty, Loading, Row, Rows, State, Two, loadTone,
+} from "../components/common";
+import { bytes, duration, num } from "../lib/format";
+
+const METHOD_TONE = {
+  GET: "info", POST: "ok", PUT: "warn", PATCH: "warn", DELETE: "err",
+};
+
+/** Loyiha nima orqali ishlaydi — xizmat, konteyner yoki oddiy fayllar. */
+function projectKind(p) {
+  if (p.services.length) return { kind: "ok", label: "xizmat" };
+  if (p.containers.length) return { kind: "info", label: "konteyner" };
+  return { kind: "grey", label: "statik" };
+}
 
 export default function Overview() {
-  const { snapshot, connected, error } = useSelector((s) => s.live);
+  const navigate = useNavigate();
+  const { snapshot } = useSelector((s) => s.live);
+  const { data: projects } = useProjectsQuery(undefined);
+  const { data: security } = useSecurityQuery(undefined, { pollingInterval: 30000 });
+  const { data: traffic } = useTrafficQuery(60, { pollingInterval: 30000 });
+  const [rules] = useRules();
+  const { lines } = useTail({ kind: "tizim", limit: 40 });
 
-  if (!snapshot) {
-    return (
-      <>
-        {error && <div className="note warn">{error}</div>}
-        <Loading label="Birinchi o'lchov kutilmoqda…" />
-      </>
-    );
-  }
+  if (!snapshot) return <Loading label="Birinchi o'lchov kutilmoqda…" />;
 
-  const { system, docker, services, security, net, history } = snapshot;
-  const { cpu, memory, host, root, disks } = system;
+  const sys = snapshot.system;
+  const hist = snapshot.history || [];
+  const cpuData = hist.map((h) => h.cpu);
+  const memData = hist.map((h) => h.mem);
+  const netData = hist.map((h) => h.rx + h.tx);
 
-  const cpuSeries = history.map((h) => h.cpu);
-  const memSeries = history.map((h) => h.mem);
-  const rxSeries = history.map((h) => h.rx);
-  const txSeries = history.map((h) => h.tx);
-  const netMax = Math.max(...rxSeries, ...txSeries, 1);
+  const alerts = collectAlerts(snapshot, security, traffic, rules);
+  const attacks = security?.attacks;
+  const attackSeries = (attacks?.timeline || []).map((t) => t.count);
+  const rps = traffic?.available
+    ? Math.round((traffic.total / (traffic.windowMinutes * 60)) * 100) / 100
+    : 0;
+
+  const EP_COLS = "52px minmax(0,1.6fr) 74px 1fr 62px 70px 62px";
+  const PR_COLS = "minmax(150px,1.4fr) 92px 84px 1fr 1fr 88px";
 
   return (
-    <>
-      {!connected && (
-        <div className="note warn">
-          Jonli ulanish uzildi — qayta ulanmoqda. Ko'rsatilgan ma'lumot
-          oxirgi o'lchovdan.
-        </div>
-      )}
-
-      <Alerts snapshot={snapshot} />
-
-      <div className="kpis">
-        <Kpi
-          label="Protsessor"
-          value={pct(cpu.usagePercent)}
-          sub={`${cpu.cores} yadro · yuk ${cpu.load1}`}
-          tone={cpu.usagePercent >= 85 ? "bad" : cpu.usagePercent >= 60 ? "warn" : "good"}
-        />
-        <Kpi
-          label="Operativ xotira"
-          value={pct(memory.usedPercent)}
-          sub={`${bytes(memory.usedMb * 1024 ** 2)} / ${bytes(memory.totalMb * 1024 ** 2)}`}
-          tone={memory.usedPercent >= 90 ? "bad" : memory.usedPercent >= 75 ? "warn" : "good"}
-        />
-        <Kpi
-          label="Bo'sh disk"
-          value={root ? `${root.freeGb} GB` : "—"}
-          sub={root ? `${root.usedGb} / ${root.sizeGb} GB band (${root.usedPercent}%)` : ""}
-          tone={root && root.usedPercent >= 85 ? "bad" : root && root.usedPercent >= 70 ? "warn" : "good"}
-        />
-        <Kpi
-          label="Konteynerlar"
-          value={`${docker.running} / ${docker.total}`}
-          sub={docker.stopped ? `${docker.stopped} tasi to'xtagan` : "hammasi ishlayapti"}
-          tone={docker.stopped ? "warn" : "good"}
-        />
-        <Kpi
-          label="Xizmatlar"
-          value={`${services.running} / ${services.total}`}
-          sub={services.failed ? `${services.failed} tasi xato` : "xato yo'q"}
-          tone={services.failed ? "bad" : "good"}
-        />
-        <Kpi
-          label="Ishlash muddati"
-          value={duration(host.uptimeSeconds).split(" ")[0]}
-          sub={duration(host.uptimeSeconds)}
-        />
-      </div>
-
-      <div className="grid2">
-        <Card title="Protsessor yuklamasi">
-          <div className="pad" style={{ paddingBottom: 6 }}>
-            <Gauge
-              label={cpu.model}
-              percent={cpu.usagePercent}
-              color={loadColor(cpu.usagePercent)}
-            />
+    <div className="split">
+      <div className="col">
+        <div className="g4">
+          <div className="metric">
+            <div className="top">
+              <span className="cap">CPU</span>
+              <span className="aside">load {sys.cpu.load1}</span>
+            </div>
+            <div className="val">
+              <span className="n">{sys.cpu.usagePercent}</span>
+              <span className="u">%</span>
+              <span className="r">{sys.cpu.cores} yadro</span>
+            </div>
+            <Spark data={cpuData} color="var(--ok)" fill="var(--okBg)" max={100} />
           </div>
-          <Sparkline data={cpuSeries} color="#4C9AFF" max={100} />
-          <div className="legend">
-            <span>1 daq: {cpu.load1}</span>
-            <span>5 daq: {cpu.load5}</span>
-            <span>15 daq: {cpu.load15}</span>
-          </div>
-        </Card>
 
-        <Card title="Operativ xotira">
-          <div className="pad" style={{ paddingBottom: 6 }}>
-            <Gauge
-              label={`Band: ${bytes(memory.usedMb * 1024 ** 2)}`}
-              percent={memory.usedPercent}
-              color={loadColor(memory.usedPercent)}
-            />
-            <Gauge
-              label={`Kesh: ${bytes(memory.cacheMb * 1024 ** 2)}`}
-              percent={(memory.cacheMb / memory.totalMb) * 100}
-              right={bytes(memory.cacheMb * 1024 ** 2)}
-              color="var(--ink-3)"
-            />
-          </div>
-          <Sparkline data={memSeries} color="#3FBF7F" max={100} />
-          <div className="legend">
-            <span>Bo'sh: {bytes(memory.availableMb * 1024 ** 2)}</span>
-            {memory.swapTotalMb > 0 && (
-              <span>
-                Swap: {bytes(memory.swapUsedMb * 1024 ** 2)} /{" "}
-                {bytes(memory.swapTotalMb * 1024 ** 2)}
-              </span>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid2">
-        <Card title="Tarmoq tezligi">
-          <div className="pad" style={{ paddingBottom: 6 }}>
-            <div className="inline" style={{ gap: 22, marginBottom: 10 }}>
-              <span>
-                <span className="muted">Qabul: </span>
-                <b style={{ fontFamily: "var(--mono)" }}>{perSec(net.rxPerSec)}</b>
-              </span>
-              <span>
-                <span className="muted">Yuborish: </span>
-                <b style={{ fontFamily: "var(--mono)" }}>{perSec(net.txPerSec)}</b>
+          <div className="metric">
+            <div className="top">
+              <span className="cap">Xotira</span>
+              <span className="aside">
+                {(sys.memory.usedMb / 1024).toFixed(1)} / {(sys.memory.totalMb / 1024).toFixed(0)} GB
               </span>
             </div>
+            <div className="val">
+              <span className="n">{sys.memory.usedPercent}</span>
+              <span className="u">%</span>
+              <span className="r">swap {(sys.memory.swapUsedMb / 1024).toFixed(1)}G</span>
+            </div>
+            <Spark data={memData} color="var(--info)" fill="var(--infoBg)" max={100} />
           </div>
-          <Sparkline data={rxSeries} color="#4C9AFF" max={netMax} height={44} />
-          <Sparkline data={txSeries} color="#E0A33C" max={netMax} height={44} />
-          <div className="legend">
-            <span><i style={{ background: "#4C9AFF" }} />Qabul</span>
-            <span><i style={{ background: "#E0A33C" }} />Yuborish</span>
-          </div>
-        </Card>
 
-        <Card title="Disklar">
+          <div className="metric">
+            <div className="top">
+              <span className="cap">Tarmoq</span>
+              <span className="aside" style={{ display: "flex", gap: 7 }}>
+                <span style={{ color: "var(--ok)" }}>↓{bytes(snapshot.net.rxPerSec)}</span>
+                <span style={{ color: "var(--warn)" }}>↑{bytes(snapshot.net.txPerSec)}</span>
+              </span>
+            </div>
+            <div className="val">
+              <span className="n">
+                {((snapshot.net.rxPerSec + snapshot.net.txPerSec) / 125000).toFixed(1)}
+              </span>
+              <span className="u">Mb/s</span>
+            </div>
+            <Spark data={netData} color="var(--warn)" fill="var(--warnBg)" />
+          </div>
+
+          <div className="metric tight">
+            <div className="top">
+              <span className="cap">Disk</span>
+              <span className="aside">
+                {sys.root ? `${sys.root.usedGb} / ${sys.root.sizeGb} GB` : "—"}
+              </span>
+            </div>
+            <div className="val">
+              <span className="n">{sys.root?.usedPercent ?? 0}</span>
+              <span className="u">%</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {sys.disks.slice(0, 3).map((d) => (
+                <div className="stack2" key={d.mount}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="lab">{d.mount}</span>
+                    <span className="lab">{d.usedPercent}%</span>
+                  </div>
+                  <Bar percent={d.usedPercent} color={loadTone(d.usedPercent)} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="g4">
+          <button className="tile" onClick={() => navigate("/xavfsizlik")}>
+            <span className="cap">Hujum urinishlari</span>
+            <span className="line">
+              <span className="n">{num(snapshot.security.totalFailed)}</span>
+              <span className="mono" style={{ fontSize: 10, color: "var(--err)" }}>
+                +{attacks?.perMinute ?? 0}/daq
+              </span>
+            </span>
+            <span className="foot">
+              {snapshot.security.uniqueSources} IP · {snapshot.security.bannedNow} bloklangan
+            </span>
+          </button>
+
+          <button className="tile" onClick={() => navigate("/konteynerlar")}>
+            <span className="cap">Konteynerlar</span>
+            <span className="line">
+              <span className="n">{snapshot.docker.running}</span>
+              <span className="mono muted" style={{ fontSize: 11 }}>
+                / {snapshot.docker.total}
+              </span>
+            </span>
+            <span className="foot">docker cpu {snapshot.docker.cpuTotal.toFixed(1)}%</span>
+          </button>
+
+          <button className="tile" onClick={() => navigate("/xizmatlar")}>
+            <span className="cap">systemd xizmatlari</span>
+            <span className="line">
+              <span className="n">{snapshot.services.running}</span>
+              <span className="mono muted" style={{ fontSize: 11 }}>
+                / {snapshot.services.total}
+              </span>
+            </span>
+            <span className="foot"
+                  style={{ color: snapshot.services.failed ? "var(--err)" : "var(--ok)" }}>
+              {snapshot.services.failed
+                ? `${snapshot.services.failed} ta failed`
+                : "hammasi joyida"}
+            </span>
+          </button>
+
+          <button className="tile" onClick={() => navigate("/loyihalar")}>
+            <span className="cap">Loyihalar</span>
+            <span className="line">
+              <span className="n">{projects?.items?.length ?? "—"}</span>
+            </span>
+            <span className="foot">
+              {projects ? bytes(projects.summary.totalBytes) : "hisoblanmoqda…"}
+            </span>
+          </button>
+        </div>
+
+        <Card
+          title="Oxirgi 3 daqiqa"
+          action={
+            <div className="legend">
+              <span><i style={{ background: "var(--ok)" }} />cpu</span>
+              <span><i style={{ background: "var(--info)" }} />xotira</span>
+              <span><i style={{ background: "var(--warn)" }} />tarmoq</span>
+            </div>
+          }
+        >
           <div className="pad">
-            {disks.map((d) => (
-              <Gauge
-                key={d.mount}
-                label={`${d.mount} — ${d.filesystem}`}
-                percent={d.usedPercent}
-                right={`${d.usedGb} / ${d.sizeGb} GB`}
-                color={loadColor(d.usedPercent)}
-              />
-            ))}
+            <BigChart
+              series={[
+                { label: "cpu", data: cpuData, color: "var(--ok)", fill: "var(--okBg)", width: 2 },
+                { label: "mem", data: memData, color: "var(--info)", width: 1.6 },
+                { label: "net", data: netData, color: "var(--warn)", width: 1.4, dashed: true },
+              ]}
+            />
+            <div className="axis" style={{ paddingTop: 8 }}>
+              <span>-3 daq</span><span>-2</span><span>-1</span><span>hozir</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card
+          title="So'rov / sekund"
+          sub={traffic?.available
+            ? `${traffic.windowMinutes} daqiqa · ${num(traffic.total)} so'rov`
+            : "Caddy loglari yo'q"}
+          action={<Link className="link" to="/trafik">trafik →</Link>}
+        >
+          {traffic?.available ? (
+            <>
+              <div className="pad"
+                   style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <div className="cap">Hozir</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                    <span className="mono"
+                          style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.03em" }}>
+                      {rps}
+                    </span>
+                    <span className="muted" style={{ fontSize: 12 }}>req/s</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 18, paddingLeft: 16,
+                              borderLeft: "1px solid var(--line)" }}>
+                  <div>
+                    <div className="cap">daqiqada</div>
+                    <div className="mono" style={{ fontSize: 13 }}>{traffic.perMinuteAvg}</div>
+                  </div>
+                  <div>
+                    <div className="cap">p95</div>
+                    <div className="mono" style={{ fontSize: 13 }}>{traffic.p95} ms</div>
+                  </div>
+                  <div>
+                    <div className="cap">domen</div>
+                    <div className="mono" style={{ fontSize: 13 }}>{traffic.domains.length}</div>
+                  </div>
+                </div>
+                <span className="spacer" />
+                <div style={{ width: 210 }}>
+                  <Spark data={(traffic.timeline || []).map((t) => t.count)}
+                         color="var(--info)" fill="var(--infoBg)" height={46} />
+                </div>
+              </div>
+              <Rows cols={EP_COLS}
+                    head={["usul", "endpoint", "req/s", "ulush", "%", "p95",
+                           { label: "xato", right: true }]}>
+                {traffic.endpoints.slice(0, 10).map((e) => (
+                  <Row cols={EP_COLS} key={`${e.method} ${e.path}`}>
+                    <span className={`tag ${METHOD_TONE[e.method] || ""}`}>{e.method}</span>
+                    <Two top={<span className="mono">{e.path}</span>} bottom={e.host} />
+                    <span className="mono">{e.perSec}</span>
+                    <Bar percent={e.share} color="var(--info)" className="h5" />
+                    <span className="mono muted">{e.share}%</span>
+                    <span className="mono"
+                          style={{ color: e.p95 > 500 ? "var(--warn)" : undefined }}>
+                      {e.p95} ms
+                    </span>
+                    <span className="mono right"
+                          style={{ color: e.errorPercent ? "var(--err)" : "var(--muted)" }}>
+                      {e.errorPercent}%
+                    </span>
+                  </Row>
+                ))}
+              </Rows>
+            </>
+          ) : (
+            <Empty title="Trafik ma'lumoti yo'q">
+              {traffic?.note || "Caddy access loglari o'qilmadi."}
+            </Empty>
+          )}
+        </Card>
+
+        <Card
+          title="Loyihalar"
+          sub={projects
+            ? `${projects.items.length} ta · ${bytes(projects.summary.totalBytes)}`
+            : ""}
+          action={<Link className="link" to="/loyihalar">hammasi →</Link>}
+        >
+          {!projects ? (
+            <Loading />
+          ) : (
+            <Rows cols={PR_COLS}
+                  head={["loyiha", "holat", "hajm", "xizmatlar", "domenlar", "trend"]}>
+              {projects.items.slice(0, 8).map((p) => {
+                const st = projectKind(p);
+                return (
+                  <Row cols={PR_COLS} key={p.path}
+                       onClick={() => navigate(`/loyihalar/${encodeURIComponent(p.name)}`)}>
+                    <Two top={p.name} bottom={p.path} />
+                    <State kind={st.kind}>{st.label}</State>
+                    <span className="mono">{p.sizeHuman}</span>
+                    <span className="mono muted ellipsis">{p.services.join(", ") || "—"}</span>
+                    <span className="mono muted ellipsis">{p.domains.join(", ") || "—"}</span>
+                    <Trend data={cpuData} color={`var(--${st.kind})`} />
+                  </Row>
+                );
+              })}
+            </Rows>
+          )}
+        </Card>
+
+        <Card title="Ishlash muddati">
+          <div className="pad g3">
+            <div>
+              <div className="cap">Uptime</div>
+              <div className="big-n">{duration(sys.host.uptimeSeconds)}</div>
+              <div className="mono muted" style={{ fontSize: 10, marginTop: 4 }}>
+                {new Date(sys.host.bootedAt).toLocaleString("ru-RU")} dan beri
+              </div>
+            </div>
+            <div>
+              <div className="cap">Yuk (1 / 5 / 15 daq)</div>
+              <div className="big-n mono">
+                {sys.cpu.load1} · {sys.cpu.load5} · {sys.cpu.load15}
+              </div>
+              <div className="mono muted" style={{ fontSize: 10, marginTop: 4 }}>
+                {sys.cpu.cores} yadro — {sys.cpu.load1 > sys.cpu.cores ? "navbat bor" : "navbat yo'q"}
+              </div>
+            </div>
+            <div>
+              <div className="cap">Yadro</div>
+              <div className="big-n mono" style={{ fontSize: 15 }}>{sys.host.kernel}</div>
+              <div className="mono muted" style={{ fontSize: 10, marginTop: 4 }}>
+                {sys.host.os}
+              </div>
+            </div>
           </div>
         </Card>
       </div>
 
-      <div className="grid2">
-        <Card title="Server haqida">
-          <div className="tbl-wrap">
-            <table>
-              <tbody>
-                <tr><td className="muted">Nomi</td><td className="mono">{host.hostname}</td></tr>
-                <tr><td className="muted">Operatsion tizim</td><td>{host.os}</td></tr>
-                <tr><td className="muted">Yadro</td><td className="mono">{host.kernel}</td></tr>
-                <tr><td className="muted">Arxitektura</td><td className="mono">{host.arch}</td></tr>
-                <tr><td className="muted">Yoqilgan</td><td>{new Date(host.bootedAt).toLocaleString("ru-RU")}</td></tr>
-                <tr><td className="muted">Ishlayapti</td><td>{duration(host.uptimeSeconds)}</td></tr>
-              </tbody>
-            </table>
-          </div>
+      <div className="col">
+        <Card title="Alertlar" action={<Link className="link" to="/alertlar">barchasi</Link>}>
+          {alerts.length === 0 ? (
+            <Empty title="Hammasi joyida">Chegaradan oshgan ko'rsatkich yo'q.</Empty>
+          ) : (
+            alerts.slice(0, 4).map((a) => (
+              <div className="alert-mini" key={a.id}>
+                <span className="edge" style={{ background: `var(--${sevKind(a.sev)})` }} />
+                <div className="body">
+                  <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                    <span className="cap" style={{ color: `var(--${sevKind(a.sev)})` }}>
+                      {a.sev}
+                    </span>
+                    <span className="cap">{a.title}</span>
+                  </div>
+                  <div className="msg">{a.msg}</div>
+                  <div className="mono" style={{ fontSize: 9.5, color: "var(--muted2)" }}>
+                    {a.svc}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </Card>
 
-        <Card title="Xavfsizlik qisqacha">
-          <div className="tbl-wrap">
-            <table>
-              <tbody>
-                <tr>
-                  <td className="muted">Hujum urinishlari</td>
-                  <td className="num">{num(security.totalFailed)}</td>
-                </tr>
-                <tr>
-                  <td className="muted">Turli IP manzillar</td>
-                  <td className="num">{num(security.uniqueSources)}</td>
-                </tr>
-                <tr>
-                  <td className="muted">Hozir bloklangan</td>
-                  <td className="num">{num(security.bannedNow)}</td>
-                </tr>
-                <tr>
-                  <td className="muted">Firewall</td>
-                  <td>
-                    <Tag kind={security.firewallActive ? "ok" : "bad"}>
-                      {security.firewallActive ? "yoqilgan" : "o'chiq"}
-                    </Tag>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="muted">Umumiy holat</td>
-                  <td>
-                    <Tag kind={security.problems.length ? "warn" : "ok"}>
-                      {security.problems.length
-                        ? `${security.problems.length} ta muammo`
-                        : "joyida"}
-                    </Tag>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        <Card title="Hujumlar oqimi" action={<span className="dot err" />}>
+          <div className="pad" style={{ paddingBottom: 6 }}>
+            <Spark data={attackSeries} color="var(--err)" fill="var(--errBg)" height={60} />
           </div>
-          <div className="pad" style={{ borderTop: "1px solid var(--line)" }}>
-            <Link className="btn sm" to="/xavfsizlik">Batafsil ko'rish →</Link>
+          {(attacks?.topSources || []).slice(0, 5).map((s) => (
+            <Row cols="1fr auto" key={s.ip}>
+              <Two top={<span className="mono">{s.ip}</span>}
+                   bottom={s.users.slice(0, 3).join(", ") || "—"} />
+              <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span className="mono" style={{ color: "var(--err)" }}>{s.attempts}</span>
+                <span className={`tag ${s.banned ? "err" : ""}`}>
+                  {s.banned ? "bloklangan" : "ochiq"}
+                </span>
+              </span>
+            </Row>
+          ))}
+          {!attacks?.topSources?.length && <Empty>Urinish qayd etilmagan.</Empty>}
+        </Card>
+
+        <Card title="Jonli loglar"
+              action={<Link className="link" to="/loglar">to'liq oqim</Link>}>
+          <div className="logbox" style={{ maxHeight: 380 }}>
+            {lines.length === 0 && <span className="muted">Kutilmoqda…</span>}
+            {lines.map((l) => {
+              const p = parseLine(l);
+              return (
+                <div className="logline" key={l.id}>
+                  <span className="t">{p.time}</span>
+                  <span className={`lvl ${p.level}`}>{p.level.slice(0, 4)}</span>
+                  <span className="msg">{p.msg}</span>
+                </div>
+              );
+            })}
           </div>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

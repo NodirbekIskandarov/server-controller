@@ -1,0 +1,225 @@
+/* ===================================================================== *
+ * Server nazorati — dizayn tokenlari
+ *
+ * Manba: Claude Design loyihasi «Server Nazorati.dc.html».
+ *
+ * Shriftlar ATAYLAB o'zimizda: panelning CSP'si `font-src 'self'`.
+ * Google Fonts'ga ruxsat berish uchun uni bo'shatish kerak bo'lardi —
+ * buning o'rniga woff2 fayllarini olib qo'ydik. Tashqi so'rov yo'q,
+ * panelga kim kirgani Google'ga ma'lum bo'lmaydi.
+ *
+ * Kirill qismi olinmagan: bu yerdagi matn — unit nomlari, IP, yo'llar
+ * va konteyner nomlari, ya'ni lotin. Kirill uchrasa tizim shrifti
+ * ishlaydi.
+ * ===================================================================== */
+
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400;
+  font-display: swap; src: url("/fonts/plex-sans-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400;
+  font-display: swap; src: url("/fonts/plex-sans-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500;
+  font-display: swap; src: url("/fonts/plex-sans-500-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500;
+  font-display: swap; src: url("/fonts/plex-sans-500-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600;
+  font-display: swap; src: url("/fonts/plex-sans-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600;
+  font-display: swap; src: url("/fonts/plex-sans-600-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 700;
+  font-display: swap; src: url("/fonts/plex-sans-700-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans"; font-style: normal; font-weight: 700;
+  font-display: swap; src: url("/fonts/plex-sans-700-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400;
+  font-display: swap; src: url("/fonts/plex-mono-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400;
+  font-display: swap; src: url("/fonts/plex-mono-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500;
+  font-display: swap; src: url("/fonts/plex-mono-500-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500;
+  font-display: swap; src: url("/fonts/plex-mono-500-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 600;
+  font-display: swap; src: url("/fonts/plex-mono-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 600;
+  font-display: swap; src: url("/fonts/plex-mono-600-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* --------------------------------------------------------------------- *
+ * Palitra
+ *
+ * Qorong'i — asosiy: server paneli tunda ham ochiladi va grafiklar
+ * qora fonda aniqroq ko'rinadi. Yorug' rejim tanlov bo'yicha.
+ *
+ * Holat ranglari (ok/info/warn/err) urg'u rangidan ALOHIDA — ular
+ * ma'no tashiydi, bezak emas.
+ * --------------------------------------------------------------------- */
+
+:root, [data-theme="dark"] {
+  --bg: #0a0b0d;
+  --panel: #0f1013;
+  --panel2: #0b0c0f;
+  --head: #0c0d10;
+  --line: #1a1c21;
+  --line2: #16181c;
+  --chip: #101115;
+  --hover: #131519;
+  --track: #1c1f24;
+  --fg: #e6e7ea;
+  --fg2: #cfd2d8;
+  --muted: #8b8f98;
+  --muted2: #71757e;
+  --faint: #5b5f67;
+  --ok: oklch(0.72 0.14 155);
+  --info: oklch(0.70 0.13 245);
+  --warn: oklch(0.76 0.14 75);
+  --err: oklch(0.68 0.17 25);
+  --grey: oklch(0.60 0.01 260);
+  --okBg: oklch(0.72 0.14 155 / 0.14);
+  --infoBg: oklch(0.70 0.13 245 / 0.14);
+  --warnBg: oklch(0.76 0.14 75 / 0.14);
+  --errBg: oklch(0.68 0.17 25 / 0.14);
+  --greyBg: oklch(0.60 0.01 260 / 0.14);
+  --sel: oklch(0.72 0.14 155 / 0.12);
+
+  --ui: "IBM Plex Sans", Helvetica, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+
+[data-theme="light"] {
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --panel2: #fbfbf9;
+  --head: #ffffff;
+  --line: #e5e4df;
+  --line2: #eeede9;
+  --chip: #f3f3f0;
+  --hover: #f4f4f1;
+  --track: #e9e8e3;
+  --fg: #15171a;
+  --fg2: #3b3f45;
+  --muted: #6b6f78;
+  --muted2: #868a92;
+  --faint: #a9adb4;
+  --ok: oklch(0.55 0.14 155);
+  --info: oklch(0.53 0.15 245);
+  --warn: oklch(0.58 0.14 65);
+  --err: oklch(0.53 0.19 25);
+  --okBg: oklch(0.55 0.14 155 / 0.10);
+  --infoBg: oklch(0.53 0.15 245 / 0.10);
+  --warnBg: oklch(0.58 0.14 65 / 0.12);
+  --errBg: oklch(0.53 0.19 25 / 0.10);
+  --greyBg: oklch(0.60 0.01 260 / 0.10);
+  --sel: oklch(0.55 0.14 155 / 0.10);
+}
+
+/* --------------------------------------------------------------------- *
+ * Asos
+ * --------------------------------------------------------------------- */
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--ui);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--info); text-decoration: none; }
+a:hover { color: var(--ok); }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+input { font-family: inherit; }
+
+:focus { outline: none; }
+:focus-visible { box-shadow: 0 0 0 3px var(--infoBg); }
+::placeholder { color: var(--faint); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--track); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(420%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

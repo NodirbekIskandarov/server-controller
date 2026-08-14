@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 export function Loading({ label = "Yuklanmoqda…" }) {
   return (
     <div className="loading" role="status">
@@ -13,10 +12,10 @@ export function ErrorBox({ error, onRetry }) {
     error?.data?.message || error?.data?.detail || error?.error ||
     (error?.status ? `Xatolik ${error.status}` : "Noma'lum xatolik");
   return (
-    <div className="note bad">
-      {String(detail)}
+    <div className="note err">
+      <span className="grow">{String(detail)}</span>
       {onRetry && (
-        <button className="btn sm" onClick={onRetry} style={{ marginLeft: 10 }}>
+        <button className="btn sm" onClick={onRetry}>
           Qayta urinish
         </button>
       )}
@@ -24,83 +23,158 @@ export function ErrorBox({ error, onRetry }) {
   );
 }
 
-export function Card({ title, action, children, className = "" }) {
+/** Sarlavhali karta. `sub` — sarlavha yonidagi mono izoh. */
+export function Card({ title, sub, action, children, className = "" }) {
   return (
     <section className={`card ${className}`}>
-      {title && (
-        <h2>
-          {title}
-          {action && (<><span className="spacer" />{action}</>)}
-        </h2>
+      {(title || action) && (
+        <header>
+          {title && <span className="h">{title}</span>}
+          {sub && <span className="sub">{sub}</span>}
+          {action && (
+            <>
+              <span className="spacer" />
+              {action}
+            </>
+          )}
+        </header>
       )}
       {children}
     </section>
   );
 }
 
-/**
- * Qiymat o'zgarganda qisqa urg'u beradi.
- *
- * O'lchov har 2 soniyada yangilanadi; urg'usiz raqam jimgina almashadi
- * va nima o'zgarganini payqash qiyin. Animatsiya CSS'da, `prefers-
- * reduced-motion` yoqilgan bo'lsa o'chadi.
- */
-function useFlash(value) {
-  const prev = useRef(value);
-  const [on, setOn] = useState(false);
-
-  useEffect(() => {
-    if (prev.current === value) return undefined;
-    prev.current = value;
-    setOn(true);
-    const id = setTimeout(() => setOn(false), 700);
-    return () => clearTimeout(id);
-  }, [value]);
-
-  return on;
+export function Cap({ children }) {
+  return <div className="cap">{children}</div>;
 }
 
-export function Kpi({ label, value, sub, tone = "" }) {
-  const flash = useFlash(value);
+/** Holat belgisi: nuqta + matn. */
+export function State({ kind = "grey", children }) {
   return (
-    <div className={`kpi ${tone}`}>
-      <div className="lbl">{label}</div>
-      <div className={`val${flash ? " flash" : ""}`}>{value}</div>
-      {sub && <div className="sub">{sub}</div>}
-    </div>
+    <span className={`state ${kind}`}>
+      <i />
+      {children}
+    </span>
   );
 }
 
-export function Tag({ children, kind = "" }) {
+export function Tag({ kind = "", children }) {
   return <span className={`tag ${kind}`}>{children}</span>;
 }
 
-export function Empty({ children = "Ma'lumot yo'q.", colSpan }) {
-  if (colSpan) {
-    return (
-      <tr>
-        <td colSpan={colSpan} className="empty">{children}</td>
-      </tr>
-    );
-  }
-  return <div className="empty">{children}</div>;
+export function Dot({ kind = "ok" }) {
+  return <span className={`dot ${kind}`} aria-hidden="true" />;
 }
 
-/** Foizli ko'rsatkich — rang darajaga qarab o'zgaradi. */
-export function Gauge({ label, percent, right, color }) {
+/** Chiziqli o'lchagich; rang darajaga qarab tanlanadi. */
+export function Bar({ percent, color, className = "" }) {
   const value = Math.max(0, Math.min(100, Number(percent) || 0));
   return (
-    <div className="gauge">
-      <div className="gauge-head">
-        <span>{label}</span>
-        <b>{right ?? `${value.toFixed(1)}%`}</b>
-      </div>
-      <div className="gauge-track">
-        <span
-          className="gauge-fill"
-          style={{ width: `${value}%`, background: color || "var(--accent)" }}
-        />
-      </div>
+    <div className={`bar ${className}`}>
+      <span style={{ width: `${value}%`, background: color }} />
     </div>
   );
+}
+
+/** O'lchagich + ostida qiymat — jadval katakchasida. */
+export function BarCell({ percent, label, color }) {
+  return (
+    <div className="stack2">
+      <Bar percent={percent} color={color} />
+      <span className="lab">{label}</span>
+    </div>
+  );
+}
+
+export function Empty({ title, children = "Ma'lumot yo'q." }) {
+  return (
+    <div className="empty">
+      {title && <b>{title}</b>}
+      <span>{children}</span>
+    </div>
+  );
+}
+
+export function Note({ kind = "", children, action }) {
+  return (
+    <div className={`note ${kind}`}>
+      <span className="grow">{children}</span>
+      {action}
+    </div>
+  );
+}
+
+/** Nom + qiymat juftliklari. */
+export function Kv({ rows }) {
+  return (
+    <div className="kv">
+      {rows.map(([key, value]) => (
+        <div key={key}>
+          <span>{key}</span>
+          <b>{value}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Grid jadval. Ustun kengligi har ekranda o'ziga xos, shuning uchun
+ * `cols` — CSS grid-template-columns qiymati.
+ */
+export function Rows({ cols, head, children }) {
+  return (
+    <div className="rows">
+      {head && (
+        <div className="head" style={{ gridTemplateColumns: cols }}>
+          {head.map((h, i) => (
+            <div key={i} className={typeof h === "object" && h?.right ? "right" : ""}>
+              {typeof h === "object" ? h.label : h}
+            </div>
+          ))}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+export function Row({ cols, onClick, active, children, title }) {
+  const cls = `r${onClick ? " click" : ""}${active ? " on" : ""}`;
+  if (onClick) {
+    return (
+      <button className={cls} style={{ gridTemplateColumns: cols }}
+              onClick={onClick} title={title}>
+        {children}
+      </button>
+    );
+  }
+  return (
+    <div className={cls} style={{ gridTemplateColumns: cols }} title={title}>
+      {children}
+    </div>
+  );
+}
+
+/** Ikki qatorli katak: asosiy nom va ostidagi mayda izoh. */
+export function Two({ top, bottom }) {
+  return (
+    <div className="two">
+      <span className="t1 ellipsis">{top}</span>
+      {bottom && <span className="t2 ellipsis">{bottom}</span>}
+    </div>
+  );
+}
+
+/** Yuklanish darajasiga qarab rang — ma'no tashiydi, bezak emas. */
+export function loadTone(percent) {
+  if (percent >= 90) return "var(--err)";
+  if (percent >= 75) return "var(--warn)";
+  return "var(--ok)";
+}
+
+export function loadKind(percent) {
+  if (percent >= 90) return "err";
+  if (percent >= 75) return "warn";
+  return "ok";
 }

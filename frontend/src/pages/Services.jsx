@@ -1,113 +1,144 @@
 import { useState } from "react";
-import { useServiceLogsQuery, useServicesQuery } from "../store/api";
-import { Card, Empty, ErrorBox, Kpi, Loading, Tag } from "../components/common";
+import { useServicesQuery } from "../store/api";
+import { useTail, parseLine } from "../components/useTail";
+import {
+  Card, Empty, ErrorBox, Loading, Row, Rows, State, Two,
+} from "../components/common";
+import { dt } from "../lib/format";
 
-function Logs({ unit }) {
-  const { data, isFetching, error } = useServiceLogsQuery(unit, {
-    pollingInterval: 5000,
-  });
-  if (error) return <ErrorBox error={error} />;
-  if (!data) return <Loading label="Loglar o'qilmoqda…" />;
-  return (
-    <pre className="logs">
-      {data.rows.length ? data.rows.join("\n") : "Log yo'q."}
-      {isFetching ? "\n…" : ""}
-    </pre>
-  );
+const UNIT_COLS = "minmax(160px,1.4fr) 90px 90px 84px minmax(0,1fr) 90px";
+const TIMER_COLS = "minmax(150px,1.2fr) 130px 110px 110px minmax(0,1fr)";
+const CRON_COLS = "minmax(120px,0.8fr) 130px minmax(0,1.6fr)";
+
+function unitKind(u) {
+  if (u.active === "active") return "ok";
+  if (u.active === "failed") return "err";
+  if (u.active === "activating") return "warn";
+  return "grey";
 }
 
 export default function Services() {
-  const { data, error, refetch } = useServicesQuery(undefined, {
-    pollingInterval: 15_000,
+  const { data, isLoading, error, refetch } = useServicesQuery(undefined, {
+    pollingInterval: 20000,
   });
-  const [open, setOpen] = useState(null);
+  const [unit, setUnit] = useState(null);
+  const { lines, live } = useTail({
+    kind: "xizmat", name: unit || "", limit: 120, enabled: Boolean(unit),
+  });
 
+  if (isLoading) return <Loading label="systemctl so'ralmoqda…" />;
   if (error) return <ErrorBox error={error} onRetry={refetch} />;
-  if (!data) return <Loading label="Xizmatlar o'qilmoqda…" />;
+
+  const { units, timers, cron, running, failed, total } = data;
 
   return (
     <>
-      <div className="kpis">
-        <Kpi label="Xizmatlar" value={data.total} sub="kuzatilayotgan" />
-        <Kpi label="Ishlayapti" value={data.running} tone="good" />
-        <Kpi
-          label="Xato holatda"
-          value={data.failed}
-          tone={data.failed ? "bad" : "good"}
-          sub={data.failed ? "tekshirish kerak" : "muammo yo'q"}
-        />
+      <div className="g4">
+        <div className="metric tight">
+          <span className="cap">Ishlayapti</span>
+          <span className="big-n" style={{ color: "var(--ok)" }}>{running}</span>
+          <span className="mono muted" style={{ fontSize: 10 }}>jami {total} ta</span>
+        </div>
+        <div className="metric tight">
+          <span className="cap">Failed</span>
+          <span className="big-n" style={{ color: failed ? "var(--err)" : undefined }}>
+            {failed}
+          </span>
+          <span className="mono muted" style={{ fontSize: 10 }}>
+            {failed ? "tekshirish kerak" : "muammo yo'q"}
+          </span>
+        </div>
+        <div className="metric tight">
+          <span className="cap">Taymerlar</span>
+          <span className="big-n">{timers.length}</span>
+          <span className="mono muted" style={{ fontSize: 10 }}>systemd timers</span>
+        </div>
+        <div className="metric tight">
+          <span className="cap">Cron vazifalari</span>
+          <span className="big-n">{cron.length}</span>
+          <span className="mono muted" style={{ fontSize: 10 }}>crontab + /etc/cron.d</span>
+        </div>
       </div>
 
-      <Card title="Xizmatlar ro'yxati">
-        <div className="tbl-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Xizmat</th>
-                <th>Tavsif</th>
-                <th>Holat</th>
-                <th className="num">Xotira</th>
-                <th className="num">Qayta ishga tushgan</th>
-                <th>Boshlangan</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {data.units.length === 0 && <Empty colSpan={7} />}
-              {data.units.map((u) => (
-                <tr key={u.name}>
-                  <td className="mono">
-                    <b>{u.name.replace(".service", "")}</b>
-                  </td>
-                  <td className="muted" style={{ fontSize: 12.5, maxWidth: 300 }}>
-                    {u.description}
-                  </td>
-                  <td>
-                    <Tag
-                      kind={
-                        u.active === "active"
-                          ? "ok"
-                          : u.active === "failed"
-                            ? "bad"
-                            : ""
-                      }
-                    >
-                      {u.active} · {u.sub}
-                    </Tag>
-                  </td>
-                  <td className="num">
-                    {u.memoryMb != null ? `${u.memoryMb} MB` : "—"}
-                  </td>
-                  <td className="num">
-                    {u.restarts > 0 ? (
-                      <span style={{ color: "var(--warn)" }}>{u.restarts}</span>
-                    ) : (
-                      0
-                    )}
-                  </td>
-                  <td className="muted nowrap" style={{ fontSize: 12 }}>
-                    {u.since ? u.since.replace(/ [A-Z]+$/, "") : "—"}
-                  </td>
-                  <td>
-                    <button
-                      className="btn sm"
-                      onClick={() => setOpen(open === u.name ? null : u.name)}
-                    >
-                      {open === u.name ? "Yopish" : "Loglar"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Card title="Xizmatlar" sub="systemctl list-units">
+        <Rows cols={UNIT_COLS}
+              head={["unit", "holat", "xotira", "restart", "tavsif", ""]}>
+          {units.map((u) => (
+            <Row cols={UNIT_COLS} key={u.name} active={unit === u.name}>
+              <span className="mono ellipsis">{u.name}</span>
+              <State kind={unitKind(u)}>{u.active}</State>
+              <span className="mono">{u.memoryMb != null ? `${u.memoryMb} MB` : "—"}</span>
+              <span className="mono" style={{ color: u.restarts ? "var(--warn)" : undefined }}>
+                {u.restarts}
+              </span>
+              <span className="muted ellipsis">{u.description}</span>
+              <button
+                className="btn sm"
+                onClick={() => setUnit(unit === u.name ? null : u.name)}
+              >
+                {unit === u.name ? "yopish" : "loglar"}
+              </button>
+            </Row>
+          ))}
+        </Rows>
       </Card>
 
-      {open && (
-        <Card title={`Loglar — ${open}`}>
-          <Logs unit={open} />
+      {unit && (
+        <Card
+          title={`${unit} loglari`}
+          sub={`journalctl -u ${unit} -f`}
+          action={<span className={`dot ${live ? "ok" : "grey"}`} />}
+        >
+          <div className="logbox" style={{ maxHeight: 320 }}>
+            {lines.length === 0 && <span className="muted">Kutilmoqda…</span>}
+            {lines.map((l) => {
+              const p = parseLine(l);
+              return (
+                <div className="logline" key={l.id}>
+                  <span className="t">{p.time}</span>
+                  <span className={`lvl ${p.level}`}>{p.level.slice(0, 4)}</span>
+                  <span className="msg">{p.msg}</span>
+                </div>
+              );
+            })}
+          </div>
         </Card>
       )}
+
+      <Card title="Taymerlar" sub="systemctl list-timers">
+        {timers.length === 0 ? (
+          <Empty>Taymer yo'q.</Empty>
+        ) : (
+          <Rows cols={TIMER_COLS}
+                head={["taymer", "keyingi", "qoldi", "oxirgi", "ishga tushiradi"]}>
+            {timers.map((t) => (
+              <Row cols={TIMER_COLS} key={t.unit}>
+                <span className="mono ellipsis">{t.unit.replace(/\.timer$/, "")}</span>
+                <span className="mono muted" style={{ fontSize: 10.5 }}>{t.next}</span>
+                <span className="mono">{t.left}</span>
+                <span className="mono muted" style={{ fontSize: 10.5 }}>{t.passed}</span>
+                <span className="mono muted ellipsis">{t.activates}</span>
+              </Row>
+            ))}
+          </Rows>
+        )}
+      </Card>
+
+      <Card title="Cron vazifalari" sub="root crontab + /etc/cron.d">
+        {cron.length === 0 ? (
+          <Empty>Cron vazifasi yo'q.</Empty>
+        ) : (
+          <Rows cols={CRON_COLS} head={["manba", "jadval", "buyruq"]}>
+            {cron.map((c, i) => (
+              <Row cols={CRON_COLS} key={`${c.source}-${i}`} title={c.command}>
+                <span className="mono muted ellipsis">{c.source}</span>
+                <span className="mono">{c.schedule}</span>
+                <span className="mono ellipsis" style={{ fontSize: 10.5 }}>{c.command}</span>
+              </Row>
+            ))}
+          </Rows>
+        )}
+      </Card>
     </>
   );
 }

@@ -32,7 +32,8 @@ export class LogsService {
         } as MessageEvent);
       };
 
-      if (!this.UNIT.test(name || '')) {
+      // «tizim» butun jurnalni oqizadi, unga nom kerak emas.
+      if (kind !== 'tizim' && !this.UNIT.test(name || '')) {
         emit("Noto'g'ri nom.", 'err');
         subscriber.complete();
         return;
@@ -40,7 +41,11 @@ export class LogsService {
 
       let cmd: string;
       let args: string[];
-      if (kind === 'docker') {
+      if (kind === 'tizim') {
+        // Butun jurnal — bitta xizmat emas. Nom kerak emas.
+        cmd = 'journalctl';
+        args = ['-f', '-n', '150', '--output=short-iso', '--no-pager'];
+      } else if (kind === 'docker') {
         cmd = 'docker';
         args = ['logs', '-f', '--tail', '120', '--timestamps', name];
       } else {
@@ -49,8 +54,12 @@ export class LogsService {
         args = ['-u', unit, '-f', '-n', '120', '--output=short-iso', '--no-pager'];
       }
 
-      emit(`— ${kind === 'docker' ? 'konteyner' : 'xizmat'} ${name} kuzatilmoqda —`,
-           'info');
+      emit(
+        kind === 'tizim'
+          ? '— butun tizim jurnali kuzatilmoqda —'
+          : `— ${kind === 'docker' ? 'konteyner' : 'xizmat'} ${name} kuzatilmoqda —`,
+        'info',
+      );
 
       const child = spawn(cmd, args, {
         env: { ...process.env, LANG: 'C', LC_ALL: 'C' },

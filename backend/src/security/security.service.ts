@@ -201,10 +201,32 @@ export class SecurityService {
       }))
       .reverse();
 
+    // Vaqt bo'yicha oqim: hujum to'lqin-to'lqin keladi, grafikda buni
+    // ko'rish raqamdan ko'ra ko'proq narsa aytadi.
+    const perHour = new Map<string, number>();
+    for (const line of failed) {
+      const time = this.parseTime(line);
+      if (!time) continue;
+      const parsed = new Date(
+        /^\d{4}-/.test(time) ? time : `${new Date().getFullYear()} ${time}`,
+      );
+      if (Number.isNaN(parsed.getTime())) continue;
+      const bucket = parsed.toISOString().slice(0, 13);
+      perHour.set(bucket, (perHour.get(bucket) || 0) + 1);
+    }
+    const timeline = [...perHour.entries()]
+      .sort()
+      .map(([hour, count]) => ({ hour, count }));
+
+    // Oxirgi soatdagi tezlik — «daqiqasiga necha urinish».
+    const lastHour = timeline.length ? timeline[timeline.length - 1].count : 0;
+
     const data = {
       totalFailed: failed.length,
       uniqueSources: sources.length,
       topSources: sources.slice(0, 25),
+      timeline,
+      perMinute: Math.round((lastHour / 60) * 10) / 10,
       kinds: this.classify(lines),
       topUsernames: [...userCounts.entries()]
         .sort((a, b) => b[1] - a[1])

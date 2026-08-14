@@ -72,7 +72,15 @@ export class DockerService {
     const out = await this.shell.exec('docker', [
       'system', 'df', '--format', '{{json .}}',
     ]);
-    return this.shell.jsonLines(out);
+    // Docker maydonlarni bosh harf bilan qaytaradi — qolgan API bilan
+    // bir xil bo'lishi uchun nomlarni moslashtiramiz.
+    return this.shell.jsonLines(out).map((u) => ({
+      type: u.Type,
+      count: Number(u.TotalCount) || 0,
+      active: Number(u.Active) || 0,
+      size: u.Size,
+      reclaimable: u.Reclaimable,
+    }));
   }
 
   async summary() {

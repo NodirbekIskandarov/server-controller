@@ -19,22 +19,29 @@ export default function Login() {
   return (
     <div className="login-wrap">
       <form className="login-box" onSubmit={onSubmit}>
-        <h1>🖥️ Server nazorati</h1>
-        <p className="sub">169.58.23.132</p>
+        <div className="head">
+          <div className="mark">SN</div>
+          <div>
+            <h1>Server nazorati</h1>
+            <div className="sub">169.58.23.132</div>
+          </div>
+        </div>
 
-        {error && <div className="note bad">{error}</div>}
+        {error && <div className="note err">{error}</div>}
 
-        <label className="fld">
+        <label>
           <span>Login</span>
           <input
+            className="field"
             type="text" autoComplete="username" autoFocus required maxLength={64}
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
           />
         </label>
-        <label className="fld">
+        <label>
           <span>Parol</span>
           <input
+            className="field"
             type="password" autoComplete="current-password" required maxLength={256}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}

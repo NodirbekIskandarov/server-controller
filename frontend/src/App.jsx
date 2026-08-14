@@ -6,12 +6,14 @@ import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Overview from "./pages/Overview";
 import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
 import Docker from "./pages/Docker";
 import Services from "./pages/Services";
 import Security from "./pages/Security";
 import Traffic from "./pages/Traffic";
 import Deploy from "./pages/Deploy";
 import Logs from "./pages/Logs";
+import AlertsPage from "./pages/AlertsPage";
 
 export default function App() {
   useSessionQuery();
@@ -31,12 +33,17 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Overview />} />
         <Route path="/loyihalar" element={<Projects />} />
-        <Route path="/docker" element={<Docker />} />
+        <Route path="/loyihalar/:name" element={<ProjectDetail />} />
+        <Route path="/konteynerlar" element={<Docker />} />
         <Route path="/xizmatlar" element={<Services />} />
         <Route path="/xavfsizlik" element={<Security />} />
         <Route path="/trafik" element={<Traffic />} />
-        <Route path="/deploy" element={<Deploy />} />
         <Route path="/loglar" element={<Logs />} />
+        <Route path="/deploy" element={<Deploy />} />
+        <Route path="/alertlar" element={<AlertsPage />} />
+
+        {/* Eski manzil — havolalar buzilmasin. */}
+        <Route path="/docker" element={<Navigate to="/konteynerlar" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

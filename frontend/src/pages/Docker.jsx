@@ -1,144 +1,121 @@
 import { useDockerQuery } from "../store/api";
-import { Card, Empty, ErrorBox, Kpi, Loading, Tag } from "../components/common";
-import { pct } from "../lib/format";
+import {
+  Bar, BarCell, Card, Empty, ErrorBox, Loading, Row, Rows, State, Two, loadTone,
+} from "../components/common";
+
+const COLS = "minmax(150px,1.3fr) 86px minmax(120px,1fr) 1fr 1fr 120px 130px";
 
 export default function Docker() {
-  const { data, error, refetch } = useDockerQuery(undefined, {
-    pollingInterval: 10_000,
+  const { data, isLoading, error, refetch } = useDockerQuery(undefined, {
+    pollingInterval: 15000,
   });
 
+  if (isLoading) return <Loading label="docker stats o'lchanmoqda…" />;
   if (error) return <ErrorBox error={error} onRetry={refetch} />;
-  if (!data) return <Loading label="Konteynerlar o'qilmoqda…" />;
 
-  const busiest = Math.max(...data.containers.map((c) => c.cpuPercent), 1);
+  const { containers, images, usage, running, total, stopped, cpuTotal } = data;
 
   return (
     <>
-      <div className="kpis">
-        <Kpi label="Konteynerlar" value={data.total} sub="jami" />
-        <Kpi label="Ishlayapti" value={data.running} tone="good" sub="faol" />
-        <Kpi
-          label="To'xtagan"
-          value={data.stopped}
-          tone={data.stopped ? "warn" : "good"}
-          sub={data.stopped ? "e'tibor bering" : "hammasi joyida"}
-        />
-        <Kpi label="Umumiy CPU" value={pct(data.cpuTotal)} sub="barcha konteyner" />
-        <Kpi label="Obrazlar" value={data.images.length} sub="yuklangan" />
+      <div className="g4">
+        <div className="metric tight">
+          <span className="cap">Ishlayapti</span>
+          <span className="big-n" style={{ color: "var(--ok)" }}>{running}</span>
+          <span className="mono muted" style={{ fontSize: 10 }}>jami {total} ta</span>
+        </div>
+        <div className="metric tight">
+          <span className="cap">To'xtagan</span>
+          <span className="big-n" style={{ color: stopped ? "var(--warn)" : undefined }}>
+            {stopped}
+          </span>
+          <span className="mono muted" style={{ fontSize: 10 }}>
+            {stopped ? "tekshirish kerak" : "hammasi ishlayapti"}
+          </span>
+        </div>
+        <div className="metric tight">
+          <span className="cap">Docker CPU</span>
+          <span className="big-n">{cpuTotal.toFixed(1)}%</span>
+          <span className="mono muted" style={{ fontSize: 10 }}>barcha konteyner</span>
+        </div>
+        <div className="metric tight">
+          <span className="cap">Obrazlar</span>
+          <span className="big-n">{images.length}</span>
+          <span className="mono muted" style={{ fontSize: 10 }}>
+            {usage.find((u) => /image/i.test(u.type))?.reclaimable || "—"} bo'shatish mumkin
+          </span>
+        </div>
       </div>
 
-      <Card title="Konteynerlar">
-        <div className="tbl-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Nomi</th>
-                <th>Loyiha</th>
-                <th>Obraz</th>
-                <th>Holat</th>
-                <th className="num">CPU</th>
-                <th>Yuk</th>
-                <th>Xotira</th>
-                <th>Portlar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.containers.length === 0 && <Empty colSpan={8} />}
-              {data.containers.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <b>{c.name}</b>
-                    <div className="muted mono" style={{ fontSize: 11.5 }}>
-                      {c.id}
-                    </div>
-                  </td>
-                  <td className="muted">{c.project || "—"}</td>
-                  <td className="mono" style={{ fontSize: 12 }}>
-                    {c.image}
-                  </td>
-                  <td>
-                    <Tag kind={c.state === "running" ? "ok" : "warn"}>{c.state}</Tag>
-                    <div className="muted" style={{ fontSize: 11.5 }}>
-                      {c.status}
-                    </div>
-                  </td>
-                  <td className="num">{pct(c.cpuPercent)}</td>
-                  <td style={{ minWidth: 90 }}>
-                    <span className="tree-bar">
-                      <span style={{ width: `${(100 * c.cpuPercent) / busiest}%` }} />
-                    </span>
-                  </td>
-                  <td className="mono" style={{ fontSize: 12 }}>
-                    {c.memUsage || "—"}
-                    {c.memPercent > 0 && (
-                      <div className="muted">{pct(c.memPercent)}</div>
-                    )}
-                  </td>
-                  <td className="mono" style={{ fontSize: 11.5, maxWidth: 220 }}>
-                    {c.ports || "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Card title="Konteynerlar" sub="docker ps · docker stats">
+        {containers.length === 0 ? (
+          <Empty title="Konteyner yo'q" />
+        ) : (
+          <Rows
+            cols={COLS}
+            head={["konteyner", "holat", "obraz", "cpu", "xotira", "portlar", "net i/o"]}
+          >
+            {containers.map((c) => (
+              <Row cols={COLS} key={c.id} title={c.status}>
+                <Two top={c.name} bottom={`${c.id} · ${c.project || "—"}`} />
+                <State kind={c.state === "running" ? "ok" : c.state === "exited" ? "err" : "warn"}>
+                  {c.state}
+                </State>
+                <span className="mono muted ellipsis">{c.image}</span>
+                <BarCell
+                  percent={Math.min(100, c.cpuPercent)}
+                  label={`${c.cpuPercent.toFixed(1)}%`}
+                  color={loadTone(c.cpuPercent)}
+                />
+                <BarCell
+                  percent={c.memPercent}
+                  label={c.memUsage || "—"}
+                  color={loadTone(c.memPercent)}
+                />
+                <span className="mono ellipsis" style={{ fontSize: 10 }}>
+                  {c.ports || "—"}
+                </span>
+                <span className="mono muted" style={{ fontSize: 10 }}>{c.netIo || "—"}</span>
+              </Row>
+            ))}
+          </Rows>
+        )}
       </Card>
 
-      <div className="grid2">
-        <Card title="Obrazlar">
-          <div className="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Obraz</th>
-                  <th>Teg</th>
-                  <th className="num">Hajmi</th>
-                  <th>Yaratilgan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.images.length === 0 && <Empty colSpan={4} />}
-                {data.images.map((i, k) => (
-                  <tr key={k}>
-                    <td className="mono" style={{ fontSize: 12 }}>
-                      {i.repository}
-                    </td>
-                    <td className="mono" style={{ fontSize: 12 }}>
-                      {i.tag}
-                    </td>
-                    <td className="num">{i.size}</td>
-                    <td className="muted">{i.createdSince}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="g2">
+        <Card title="Obrazlar" sub="docker images">
+          <Rows cols="minmax(0,1fr) 90px 90px 110px"
+                head={["repozitoriy", "teg", { label: "hajm", right: true },
+                       { label: "yaratilgan", right: true }]}>
+            {images.map((i) => (
+              <Row cols="minmax(0,1fr) 90px 90px 110px" key={`${i.repository}:${i.tag}`}>
+                <span className="mono ellipsis">{i.repository}</span>
+                <span className="mono muted">{i.tag}</span>
+                <span className="mono right">{i.size}</span>
+                <span className="mono muted right" style={{ fontSize: 10 }}>
+                  {i.createdSince}
+                </span>
+              </Row>
+            ))}
+            {images.length === 0 && <Empty>Obraz yo'q.</Empty>}
+          </Rows>
         </Card>
 
-        <Card title="Docker disk egallashi">
-          <div className="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Turi</th>
-                  <th className="num">Soni</th>
-                  <th className="num">Hajmi</th>
-                  <th className="num">Bo'shatish mumkin</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.usage.length === 0 && <Empty colSpan={4} />}
-                {data.usage.map((u, k) => (
-                  <tr key={k}>
-                    <td>{u.Type}</td>
-                    <td className="num">{u.TotalCount}</td>
-                    <td className="num">{u.Size}</td>
-                    <td className="num">{u.Reclaimable}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <Card title="Docker diski" sub="docker system df">
+          <Rows cols="minmax(0,1fr) 60px 90px 110px"
+                head={["turi", "soni", { label: "hajm", right: true },
+                       { label: "bo'shatish", right: true }]}>
+            {usage.map((u) => (
+              <Row cols="minmax(0,1fr) 60px 90px 110px" key={u.type}>
+                <span className="mono">{u.type}</span>
+                <span className="mono muted">{u.count}</span>
+                <span className="mono right">{u.size}</span>
+                <span className="mono right" style={{ color: "var(--warn)" }}>
+                  {u.reclaimable}
+                </span>
+              </Row>
+            ))}
+            {usage.length === 0 && <Empty>Ma'lumot yo'q.</Empty>}
+          </Rows>
         </Card>
       </div>
     </>

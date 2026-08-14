@@ -1,167 +1,106 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useDockerQuery, useServicesQuery } from "../store/api";
-import { Card, Loading } from "../components/common";
+import { useTail, parseLine } from "../components/useTail";
+import { Empty } from "../components/common";
 
-const MAX_LINES = 800;
+const LEVELS = [
+  ["", "hammasi"],
+  ["info", "info"],
+  ["warn", "warn"],
+  ["error", "error"],
+];
 
 export default function Logs() {
-  const { data: services } = useServicesQuery();
-  const { data: docker } = useDockerQuery();
+  const { data: services } = useServicesQuery(undefined);
+  const { data: docker } = useDockerQuery(undefined);
+  const [source, setSource] = useState({ kind: "tizim", name: "" });
+  const [level, setLevel] = useState("");
+  const [search, setSearch] = useState("");
 
-  const [source, setSource] = useState(null); // { kind, name }
-  const [lines, setLines] = useState([]);
-  const [paused, setPaused] = useState(false);
-  const [filter, setFilter] = useState("");
-  const box = useRef(null);
+  const { lines, live } = useTail({ ...source, limit: 400 });
 
-  // O'z loyihalari tepada tursin — ular ko'proq kerak bo'ladi.
-  const options = useMemo(() => {
-    const own = /^(tanga|server-controller)/;
-    const units = (services?.units || [])
-      .filter((u) => u.active === "active" || own.test(u.name))
-      .map((u) => ({ kind: "systemd", name: u.name, label: u.name.replace(".service", "") }));
-    units.sort((a, b) => Number(own.test(b.name)) - Number(own.test(a.name)));
-    const containers = (docker?.containers || [])
-      .filter((c) => c.state === "running")
-      .map((c) => ({ kind: "docker", name: c.name, label: c.name }));
-    return { units, containers };
-  }, [services, docker]);
+  const rows = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return lines
+      .map((l) => ({ ...parseLine(l), id: l.id }))
+      .filter((r) => !level || r.level === level)
+      .filter((r) => !needle
+        || r.msg.toLowerCase().includes(needle)
+        || r.svc.toLowerCase().includes(needle));
+  }, [lines, level, search]);
 
-  // Tanlangan manba o'zgarganda eski oqim yopiladi, yangisi ochiladi.
-  useEffect(() => {
-    if (!source) return;
-    setLines([]);
-    const url =
-      `/api/logs/oqim?tur=${encodeURIComponent(source.kind)}` +
-      `&nom=${encodeURIComponent(source.name)}`;
-    const es = new EventSource(url, { withCredentials: true });
-    es.onmessage = (event) => {
-      try {
-        const entry = JSON.parse(event.data);
-        setLines((prev) => {
-          const next = [...prev, entry];
-          return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next;
-        });
-      } catch {
-        /* buzuq xabar */
-      }
-    };
-    es.onerror = () =>
-      setLines((prev) => [
-        ...prev,
-        { at: new Date().toISOString(), line: "— ulanish uzildi —", stream: "err" },
-      ]);
-    return () => es.close();
-  }, [source]);
+  const own = (services?.units || [])
+    .filter((u) => /^(tanga|server-controller|gym|kino|teacher|portfolio)/.test(u.name))
+    .slice(0, 8);
+  const containers = (docker?.containers || [])
+    .filter((c) => c.state === "running")
+    .slice(0, 8);
 
-  // Pauzada bo'lmasa pastga siljiymiz.
-  useEffect(() => {
-    if (paused) return;
-    const el = box.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lines, paused]);
-
-  const shown = filter
-    ? lines.filter((l) => l.line.toLowerCase().includes(filter.toLowerCase()))
-    : lines;
-
-  if (!services || !docker) return <Loading label="Ro'yxat tayyorlanmoqda…" />;
+  const isOn = (kind, name) => source.kind === kind && source.name === name;
 
   return (
     <>
-      <Card title="Nimani kuzatamiz">
-        <div className="pad">
-          <div className="row" style={{ marginBottom: 12 }}>
-            <label className="fld" style={{ margin: 0, minWidth: 260 }}>
-              <span>Xizmat (systemd)</span>
-              <select
-                value={source?.kind === "systemd" ? source.name : ""}
-                onChange={(e) =>
-                  e.target.value && setSource({ kind: "systemd", name: e.target.value })
-                }
-              >
-                <option value="">— tanlang —</option>
-                {options.units.map((u) => (
-                  <option key={u.name} value={u.name}>{u.label}</option>
-                ))}
-              </select>
-            </label>
+      <div className="chips">
+        <button className={`chip-btn ${isOn("tizim", "") ? "on" : ""}`}
+                onClick={() => setSource({ kind: "tizim", name: "" })}>
+          butun tizim
+        </button>
+        {own.map((u) => (
+          <button key={u.name}
+                  className={`chip-btn ${isOn("xizmat", u.name) ? "on" : ""}`}
+                  onClick={() => setSource({ kind: "xizmat", name: u.name })}>
+            {u.name.replace(/\.service$/, "")}
+          </button>
+        ))}
+        {containers.map((c) => (
+          <button key={c.name}
+                  className={`chip-btn ${isOn("docker", c.name) ? "on" : ""}`}
+                  onClick={() => setSource({ kind: "docker", name: c.name })}>
+            🐳 {c.name}
+          </button>
+        ))}
+      </div>
 
-            <label className="fld" style={{ margin: 0, minWidth: 240 }}>
-              <span>Konteyner (docker)</span>
-              <select
-                value={source?.kind === "docker" ? source.name : ""}
-                onChange={(e) =>
-                  e.target.value && setSource({ kind: "docker", name: e.target.value })
-                }
-              >
-                <option value="">— tanlang —</option>
-                {options.containers.map((c) => (
-                  <option key={c.name} value={c.name}>{c.label}</option>
-                ))}
-              </select>
-            </label>
+      <div className="chips">
+        {LEVELS.map(([v, label]) => (
+          <button key={v}
+                  className={`chip-btn ${level === v ? "on" : ""}`}
+                  onClick={() => setLevel(v)}>
+            {label}
+          </button>
+        ))}
+        <input
+          className="field"
+          style={{ width: 230, marginLeft: 6 }}
+          placeholder="matn bo'yicha filtr…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <span className="spacer" />
+        <span className={`dot ${live ? "ok" : "grey"}`} />
+        <span className="cap">
+          {rows.length} / {lines.length} qator
+        </span>
+      </div>
 
-            <label className="fld grow" style={{ margin: 0, minWidth: 200 }}>
-              <span>Qidiruv</span>
-              <input
-                type="text"
-                placeholder="matn bo'yicha filtr"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className="row">
-            <button
-              className={`btn sm ${paused ? "pri" : ""}`}
-              onClick={() => setPaused(!paused)}
-              disabled={!source}
-            >
-              {paused ? "▶ Davom ettirish" : "⏸ Pauza (siljitmaslik)"}
-            </button>
-            <button className="btn sm" onClick={() => setLines([])} disabled={!source}>
-              Tozalash
-            </button>
-            {source && (
-              <span className="muted" style={{ fontSize: 13 }}>
-                {source.kind === "docker" ? "🐳" : "⚙️"} {source.name} ·{" "}
-                {shown.length} qator
-                {filter && ` (${lines.length} tadan)`}
-              </span>
-            )}
-          </div>
+      <div className="card" style={{ background: "var(--panel2)" }}>
+        <div className="sweep"><span /></div>
+        <div className="stream">
+          {rows.length === 0 && (
+            <Empty title="Qator yo'q">
+              {lines.length ? "Filtrga mos qator topilmadi." : "Oqim kutilmoqda…"}
+            </Empty>
+          )}
+          {rows.map((r) => (
+            <div className="row" key={r.id}>
+              <span className="faint">{r.time}</span>
+              <span className={`lvl ${r.level}`}>{r.level.slice(0, 4)}</span>
+              <span className="muted ellipsis">{r.svc}</span>
+              <span style={{ color: "var(--fg2)", wordBreak: "break-word" }}>{r.msg}</span>
+            </div>
+          ))}
         </div>
-      </Card>
-
-      <Card title={source ? `Jonli log — ${source.name}` : "Jonli log"}>
-        {!source ? (
-          <div className="empty">
-            Yuqoridan xizmat yoki konteyner tanlang — loglar shu yerda
-            jonli oqadi.
-          </div>
-        ) : (
-          <pre className="logs" ref={box} style={{ maxHeight: 620 }}>
-            {shown.map((l, i) => (
-              <div
-                key={i}
-                style={{
-                  color:
-                    l.stream === "err"
-                      ? "var(--danger)"
-                      : l.stream === "info"
-                        ? "var(--accent)"
-                        : "inherit",
-                }}
-              >
-                {l.line}
-              </div>
-            ))}
-            {shown.length === 0 && "Hozircha qator yo'q — kutilmoqda…"}
-          </pre>
-        )}
-      </Card>
+      </div>
     </>
   );
 }
