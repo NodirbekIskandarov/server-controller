@@ -32,6 +32,10 @@ const NAV = [
       { to: "/alertlar", label: "Alertlar", pill: "alerts" },
     ],
   },
+  {
+    cap: "Hisob",
+    items: [{ to: "/tolov", label: "To'lov va hisob" }],
+  },
 ];
 
 const TITLES = {
@@ -44,6 +48,7 @@ const TITLES = {
   "/loglar": ["Jonli loglar", "journalctl -f · barcha xizmatlar"],
   "/deploy": ["Joylashtirish", "git pull · build · restart"],
   "/alertlar": ["Alertlar", "chegaralar brauzerda saqlanadi"],
+  "/tolov": ["To'lov va hisob", "billing.json · Caddy sertifikatlari"],
 };
 
 export default function Layout() {

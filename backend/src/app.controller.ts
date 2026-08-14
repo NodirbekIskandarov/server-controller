@@ -6,6 +6,7 @@ import { DockerService } from './docker/docker.service';
 import { ServicesService } from './services/services.service';
 import { SecurityService } from './security/security.service';
 import { TrafficService } from './traffic/traffic.service';
+import { BillingService } from './billing/billing.service';
 
 @Controller('api')
 @UseGuards(AuthGuard)
@@ -17,6 +18,7 @@ export class AppController {
     private readonly services: ServicesService,
     private readonly security: SecurityService,
     private readonly traffic: TrafficService,
+    private readonly billing: BillingService,
   ) {}
 
   @Public()
@@ -54,6 +56,11 @@ export class AppController {
   @Get('services/:unit/logs')
   serviceLogs(@Param('unit') unit: string, @Query('qator') lines?: string) {
     return this.services.logs(unit, Number(lines) || 80).then((rows) => ({ rows }));
+  }
+
+  @Get('billing')
+  billingInfo() {
+    return this.billing.overview();
   }
 
   @Get('security')

@@ -19,7 +19,7 @@ export const api = createApi({
   baseQuery: withAuth,
   tagTypes: [
     "Session", "Projects", "Docker", "Services", "Security", "Traffic",
-    "Deploy",
+    "Deploy", "Billing",
   ],
   // Kuzatuv panelida ma'lumot eskirmasligi kerak.
   keepUnusedDataFor: 30,
@@ -50,6 +50,8 @@ export const api = createApi({
       providesTags: ["Traffic"],
     }),
 
+    billing: build.query({ query: () => "/billing", providesTags: ["Billing"] }),
+
     deployList: build.query({ query: () => "/deploy", providesTags: ["Deploy"] }),
     triggerDeploy: build.mutation({
       query: ({ project, izoh }) => ({
@@ -66,5 +68,6 @@ export const {
   useSessionQuery, useLoginMutation, useLogoutMutation,
   useSystemQuery, useProjectsQuery, useDockerQuery, useServicesQuery,
   useServiceLogsQuery, useSecurityQuery, useTrafficQuery,
+  useBillingQuery,
   useDeployListQuery, useTriggerDeployMutation,
 } = api;

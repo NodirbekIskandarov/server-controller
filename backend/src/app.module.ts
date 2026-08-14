@@ -13,6 +13,7 @@ import { DockerService } from './docker/docker.service';
 import { ServicesService } from './services/services.service';
 import { SecurityService } from './security/security.service';
 import { TrafficService } from './traffic/traffic.service';
+import { BillingService } from './billing/billing.service';
 import { RealtimeService } from './realtime/realtime.service';
 import { RealtimeController } from './realtime/realtime.controller';
 import { AuthService } from './auth/auth.service';
@@ -58,6 +59,7 @@ import { AppController } from './app.controller';
     ServicesService,
     SecurityService,
     TrafficService,
+    BillingService,
     RealtimeService,
     DeployService,
     LogsService,
