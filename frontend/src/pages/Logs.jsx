@@ -16,7 +16,7 @@ export default function Logs() {
 
   // O'z loyihalari tepada tursin — ular ko'proq kerak bo'ladi.
   const options = useMemo(() => {
-    const own = /^(hisobchi|hisobchim|server-controller)/;
+    const own = /^(tanga|server-controller)/;
     const units = (services?.units || [])
       .filter((u) => u.active === "active" || own.test(u.name))
       .map((u) => ({ kind: "systemd", name: u.name, label: u.name.replace(".service", "") }));

@@ -1,10 +1,10 @@
 #!/bin/bash
-# Hisobchi AI boti va Mini App backendini joylashtiradi.
+# Tanga boti va Mini App backendini joylashtiradi.
 set -euo pipefail
-cd /opt/hisobchi
+cd /opt/tanga
 
 echo "==> Zaxira nusxa"
-/usr/local/bin/hisobchi-backup --local 2>&1 | tail -3
+/usr/local/bin/tanga-backup --local 2>&1 | tail -3
 
 echo "==> Kod yangilanmoqda"
 git fetch --quiet origin
@@ -20,15 +20,15 @@ echo "==> Sintaksis tekshiruvi"
 ./.venv/bin/python -c "import bot, webapp, db, config, ai, reports, i18n, rates"
 
 echo "==> Huquqlar"
-chown -R hisobchi:hisobchi /opt/hisobchi
-chmod 600 /opt/hisobchi/.env /opt/hisobchi/hisobchi.db
+chown -R tanga:tanga /opt/tanga
+chmod 600 /opt/tanga/.env /opt/tanga/tanga.db
 
 echo "==> Qayta ishga tushirish"
-systemctl restart hisobchi hisobchi-webapp
+systemctl restart tanga tanga-webapp
 sleep 4
-systemctl is-active hisobchi hisobchi-webapp
+systemctl is-active tanga tanga-webapp
 
 echo "==> Tekshiruv"
 curl -sS -m 15 -o /dev/null -w "Mini App: HTTP %{http_code}\n" \
-  https://hisobchi.169-58-23-132.sslip.io/
+  https://tanga.169-58-23-132.sslip.io/
 echo "Tayyor."

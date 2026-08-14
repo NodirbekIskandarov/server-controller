@@ -13,7 +13,7 @@ export interface Unit {
 }
 
 /** Foydalanuvchining o'z loyihalari — ular tepada ko'rsatiladi. */
-const OWN = /^(hisobchi|hisobchim|server-controller|gym|kino|teacher|portfolio)/;
+const OWN = /^(tanga|server-controller|gym|kino|teacher|portfolio)/;
 
 @Injectable()
 export class ServicesService {

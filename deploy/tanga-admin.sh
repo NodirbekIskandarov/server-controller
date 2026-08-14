@@ -1,7 +1,7 @@
 #!/bin/bash
 # Admin panelni joylashtiradi: React frontendni yig'ib, backendni yangilaydi.
 set -euo pipefail
-cd /opt/hisobchim-admin
+cd /opt/tanga-admin
 
 echo "==> Kod yangilanmoqda"
 git fetch --quiet origin
@@ -21,15 +21,15 @@ echo "==> Sintaksis tekshiruvi"
 ./.venv/bin/python -c "import app, store, auth, plans, settings, telegram"
 
 echo "==> Huquqlar"
-chown -R hisobchi:hisobchi /opt/hisobchim-admin
-chmod 600 /opt/hisobchim-admin/.env
+chown -R tanga:tanga /opt/tanga-admin
+chmod 600 /opt/tanga-admin/.env
 
 echo "==> Qayta ishga tushirish"
-systemctl restart hisobchim-admin
+systemctl restart tanga-admin
 sleep 4
-systemctl is-active hisobchim-admin
+systemctl is-active tanga-admin
 
 echo "==> Tekshiruv"
 curl -sS -m 15 -o /dev/null -w "Admin panel: HTTP %{http_code}\n" \
-  https://hisobchim.niskandarov.uz/salomatlik
+  https://tanga.niskandarov.uz/salomatlik
 echo "Tayyor."

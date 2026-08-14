@@ -29,6 +29,10 @@ export interface ProjectTarget {
   path: string;
   repo: string;
   script: string;
+  /** Eski nomlar. GitHub'dagi webhook manzillari `/hook/<nom>` ko'rinishida
+   *  saqlangan — loyiha nomi o'zgarganda ular buzilmasligi uchun eski nom
+   *  ham qabul qilinadi. */
+  aliases?: string[];
 }
 
 const HISTORY_FILE = '/opt/server-controller/deploys.json';
@@ -46,16 +50,18 @@ export class DeployService {
 
   readonly targets: ProjectTarget[] = [
     {
-      name: 'hisobchi',
-      path: '/opt/hisobchi',
-      repo: 'NodirbekIskandarov/hisobchim',
-      script: '/opt/server-controller/deploy/hisobchi.sh',
+      name: 'tanga',
+      path: '/opt/tanga',
+      repo: 'NodirbekIskandarov/tanga',
+      script: '/opt/server-controller/deploy/tanga.sh',
+      aliases: ['hisobchi', 'hisobchim'],
     },
     {
-      name: 'hisobchim-admin',
-      path: '/opt/hisobchim-admin',
-      repo: 'NodirbekIskandarov/hisobchim-admin',
-      script: '/opt/server-controller/deploy/hisobchim-admin.sh',
+      name: 'tanga-admin',
+      path: '/opt/tanga-admin',
+      repo: 'NodirbekIskandarov/tanga-admin',
+      script: '/opt/server-controller/deploy/tanga-admin.sh',
+      aliases: ['hisobchim-admin'],
     },
     {
       name: 'server-controller',
@@ -92,7 +98,9 @@ export class DeployService {
   }
 
   target(name: string): ProjectTarget {
-    const found = this.targets.find((t) => t.name === name);
+    const found = this.targets.find(
+      (t) => t.name === name || (t.aliases ?? []).includes(name),
+    );
     if (!found) throw new NotFoundException(`«${name}» loyihasi ro'yxatda yo'q`);
     return found;
   }
@@ -119,8 +127,12 @@ export class DeployService {
    * Skript yo'li ro'yxatdan olinadi — tashqaridan kelgan matn hech qachon
    * buyruqqa aylanmaydi. Bir loyiha uchun bir vaqtda bitta joylashtirish.
    */
-  async start(name: string, trigger: string): Promise<DeployRun> {
-    const target = this.target(name);
+  async start(nameOrAlias: string, trigger: string): Promise<DeployRun> {
+    const target = this.target(nameOrAlias);
+    // Eski nom bilan chaqirilgan bo'lsa ham tarix va «ishlayapti» belgisi
+    // doim asosiy nom ostida yuritiladi — aks holda bitta loyiha ikki xil
+    // nom bilan bir vaqtda joylashishi mumkin edi.
+    const name = target.name;
     const existing = this.running.get(name);
     if (existing) return existing;
 

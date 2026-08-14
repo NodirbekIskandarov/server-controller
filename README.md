@@ -110,8 +110,8 @@ Har bir repoda **Settings → Webhooks → Add webhook**:
 | Secret | `.env` dagi `DEPLOY_SECRET` |
 | Events | Just the push event |
 
-`<loyiha>` — `deploy.service.ts` dagi `targets` ro'yxatidan: `hisobchi`,
-`hisobchim-admin`, `server-controller`.
+`<loyiha>` — `deploy.service.ts` dagi `targets` ro'yxatidan: `tanga`,
+`tanga-admin`, `server-controller`.
 
 ### Himoya
 
