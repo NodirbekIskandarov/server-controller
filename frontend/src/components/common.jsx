@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 export function Loading({ label = "Yuklanmoqda…" }) {
   return (
     <div className="loading" role="status">
@@ -37,11 +38,34 @@ export function Card({ title, action, children, className = "" }) {
   );
 }
 
+/**
+ * Qiymat o'zgarganda qisqa urg'u beradi.
+ *
+ * O'lchov har 2 soniyada yangilanadi; urg'usiz raqam jimgina almashadi
+ * va nima o'zgarganini payqash qiyin. Animatsiya CSS'da, `prefers-
+ * reduced-motion` yoqilgan bo'lsa o'chadi.
+ */
+function useFlash(value) {
+  const prev = useRef(value);
+  const [on, setOn] = useState(false);
+
+  useEffect(() => {
+    if (prev.current === value) return undefined;
+    prev.current = value;
+    setOn(true);
+    const id = setTimeout(() => setOn(false), 700);
+    return () => clearTimeout(id);
+  }, [value]);
+
+  return on;
+}
+
 export function Kpi({ label, value, sub, tone = "" }) {
+  const flash = useFlash(value);
   return (
     <div className={`kpi ${tone}`}>
       <div className="lbl">{label}</div>
-      <div className="val">{value}</div>
+      <div className={`val${flash ? " flash" : ""}`}>{value}</div>
       {sub && <div className="sub">{sub}</div>}
     </div>
   );

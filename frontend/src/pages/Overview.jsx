@@ -1,5 +1,6 @@
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
+import Alerts from "../components/Alerts";
 import Sparkline from "../components/Sparkline";
 import { Card, Gauge, Kpi, Loading, Tag } from "../components/common";
 import { bytes, duration, loadColor, num, perSec, pct } from "../lib/format";
@@ -34,12 +35,7 @@ export default function Overview() {
         </div>
       )}
 
-      {security.problems.length > 0 && (
-        <div className="note bad">
-          <b>Xavfsizlik e'tibor talab qiladi:</b> {security.problems.join(" · ")} —{" "}
-          <Link to="/xavfsizlik">batafsil</Link>
-        </div>
-      )}
+      <Alerts snapshot={snapshot} />
 
       <div className="kpis">
         <Kpi

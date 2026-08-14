@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useLogoutMutation } from "../store/api";
 import { useLive } from "./useLive";
+import LiveDot from "./LiveDot";
 import { timeOnly } from "../lib/format";
 
 const NAV = [
@@ -75,8 +76,9 @@ export default function Layout() {
         <div className="topbar">
           <h1>{TITLES[pathname] || "Server nazorati"}</h1>
           <span className="spacer" />
+          <LiveDot />
           <span className="clock">
-            {receivedAt ? `oxirgi o'lchov ${timeOnly(receivedAt)}` : "kutilmoqda…"}
+            {receivedAt ? timeOnly(receivedAt) : ""}
           </span>
         </div>
         <div className="content">
