@@ -29,12 +29,16 @@ const NAV = [
     items: [
       { to: "/loglar", label: "Jonli loglar" },
       { to: "/deploy", label: "Joylashtirish" },
+      { to: "/fayllar", label: "Fayl tahriri" },
       { to: "/alertlar", label: "Alertlar", pill: "alerts" },
     ],
   },
   {
     cap: "Hisob",
-    items: [{ to: "/tolov", label: "To'lov va hisob" }],
+    items: [
+      { to: "/audit", label: "Audit jurnali" },
+      { to: "/tolov", label: "To'lov va hisob" },
+    ],
   },
 ];
 
@@ -42,12 +46,14 @@ const TITLES = {
   "/": ["Umumiy holat", "cpu, xotira, tarmoq va loyihalar — real vaqtda"],
   "/loyihalar": ["Loyihalar", "/opt, /root/projects, /srv, /var/www"],
   "/konteynerlar": ["Konteynerlar", "docker ps · stats · system df"],
-  "/xizmatlar": ["Xizmatlar va cron", "systemctl · list-timers · crontab"],
-  "/xavfsizlik": ["Xavfsizlik", "auth.log · fail2ban · ufw · sshd -T"],
+  "/xizmatlar": ["Xizmatlar va cron", "systemctl start · stop · restart · reload"],
+  "/xavfsizlik": ["Xavfsizlik", "fail2ban ban/unban · ufw qoidalari · sshd -T"],
   "/trafik": ["Trafik va domenlar", "Caddy access log · ss -tlnp"],
   "/loglar": ["Jonli loglar", "journalctl -f · barcha xizmatlar"],
   "/deploy": ["Joylashtirish", "git pull · build · restart"],
   "/alertlar": ["Alertlar", "chegaralar brauzerda saqlanadi"],
+  "/fayllar": ["Fayl tahriri", "/opt · /root/projects · /etc/caddy"],
+  "/audit": ["Audit jurnali", "kim · qachon · nima · natija"],
   "/tolov": ["To'lov va hisob", "billing.json · Caddy sertifikatlari"],
 };
 

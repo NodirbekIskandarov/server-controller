@@ -7,7 +7,13 @@ Wants=network-online.target
 Type=simple
 # Tizim ma'lumotini o'qish uchun root kerak: journalctl, docker, ufw,
 # fail2ban va boshqa foydalanuvchilarning kataloglari.
-# Ilova FAQAT O'QIYDI — hech qanday o'zgartiruvchi buyruq yo'q.
+#
+# Panel endi YOZADI ham: systemctl start/stop/restart, docker
+# start/stop/restart, fail2ban-client set, ufw allow/deny/delete va
+# ruxsat etilgan kataloglardagi fayl tahriri. Chegaralar kodda —
+# backend/src/common/limits.ts (himoyalangan unitlar va konteynerlar,
+# 22/80/443 portlari, `ufw disable`/`reset` taqiqi). Har amal
+# audit.jsonl ga yoziladi.
 User=root
 Group=root
 WorkingDirectory=/opt/server-controller/backend
@@ -22,11 +28,21 @@ StandardError=journal
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=read-only
-ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
-# Faqat o'z katalogiga yozadi
-ReadWritePaths=/opt/server-controller
+
+# ProtectKernelTunables ataylab yo'q: ufw qoida qo'shganda iptables va
+# /proc/sys/net ga tegadi, u yoqilgan bo'lsa qoida qo'shilmay «Operation
+# not permitted» qaytadi.
+
+# Yozishga ochiq yo'llar. ReadWritePaths ProtectHome dan kuchliroq —
+# /root/projects shu qator tufayli tahrirlanadi.
+#   /opt, /root/projects, /etc/caddy — fayl tahriri (limits.ts: FILE_ROOTS)
+#   /etc/ufw, /lib/ufw, /var/lib/ufw — ufw qoidalarni shu yerga yozadi
+#   /etc/fail2ban, /var/lib/fail2ban — ban ro'yxati
+ReadWritePaths=/opt /root/projects /etc/caddy
+ReadWritePaths=/etc/ufw /lib/ufw /var/lib/ufw
+ReadWritePaths=/etc/fail2ban /var/lib/fail2ban
 
 [Install]
 WantedBy=multi-user.target

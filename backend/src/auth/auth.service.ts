@@ -6,6 +6,8 @@ import * as bcrypt from 'bcryptjs';
 interface Attempt {
   fails: number;
   until: number;
+  /** Oxirgi urinish vaqti — eskirgan yozuvni tashlash uchun. */
+  at: number;
 }
 
 /**
@@ -18,6 +20,10 @@ export class AuthService {
   private readonly attempts = new Map<string, Attempt>();
   private readonly MAX_FAILS = 5;
   private readonly LOCK_MS = 15 * 60 * 1000;
+  /** Shundan keyin qulflanmagan yozuv ma'nosini yo'qotadi. */
+  private readonly FORGET_MS = 60 * 60 * 1000;
+  /** Xotira uchun qattiq chegara — sweep yetishmay qolsa ham o'smasin. */
+  private readonly MAX_TRACKED = 10_000;
 
   constructor(
     private readonly config: ConfigService,
@@ -32,9 +38,34 @@ export class AuthService {
     return 0;
   }
 
+  /**
+   * Eskirgan yozuvlarni tashlaydi.
+   *
+   * Busiz Map faqat o'sardi: har bir yangi manba manzili abadiy yozuv
+   * qoldirardi va uni tozalaydigan joy yo'q edi. Bot skanerlari kuniga
+   * minglab turli IP'dan kelishini hisobga olsak, bu sekin ishlaydigan
+   * xotira oqishi.
+   */
+  private sweep() {
+    const now = Date.now();
+    for (const [ip, a] of this.attempts) {
+      const expired = a.until ? a.until <= now : now - a.at > this.FORGET_MS;
+      if (expired) this.attempts.delete(ip);
+    }
+    // Sweep yetmasa (juda tez oqim) — eng eskilarini majburan tashlaymiz.
+    if (this.attempts.size > this.MAX_TRACKED) {
+      const oldest = [...this.attempts.entries()]
+        .sort((x, y) => x[1].at - y[1].at)
+        .slice(0, this.attempts.size - this.MAX_TRACKED);
+      for (const [ip] of oldest) this.attempts.delete(ip);
+    }
+  }
+
   private fail(ip: string) {
-    const a = this.attempts.get(ip) || { fails: 0, until: 0 };
+    this.sweep();
+    const a = this.attempts.get(ip) || { fails: 0, until: 0, at: 0 };
     a.fails++;
+    a.at = Date.now();
     if (a.fails >= this.MAX_FAILS) {
       a.until = Date.now() + this.LOCK_MS;
       a.fails = 0;

@@ -1,19 +1,50 @@
-import { useDockerQuery } from "../store/api";
+import { useDockerActionMutation, useDockerQuery } from "../store/api";
+import { useAction } from "../components/useAction";
+import Confirm from "../components/Confirm";
 import {
-  Bar, BarCell, Card, Empty, ErrorBox, Loading, Row, Rows, State, Two, loadTone,
+  BarCell, Card, Empty, ErrorBox, Loading, Note, Row, Rows, State, Two, loadTone,
 } from "../components/common";
+import { containerPlan } from "../lib/consequence";
 
-const COLS = "minmax(150px,1.3fr) 86px minmax(120px,1fr) 1fr 1fr 120px 130px";
+const COLS = "minmax(150px,1.2fr) 82px minmax(110px,0.9fr) 1fr 1fr 110px 168px";
+
+const ACTIONS = ["start", "stop", "restart"];
+
+/**
+ * Caddy — teskari proksi: to'xtasa hamma domen bilan birga panelning
+ * o'zi ham ochilmay qoladi. Serverda ham shu qoida bor, bu yerdagisi
+ * tugmani oldindan o'chirib qo'yish uchun.
+ */
+function isProtected(name) {
+  return /caddy/i.test(name);
+}
+
+function blockedWhy(c, action) {
+  if (action === "stop" && isProtected(c.name)) {
+    return `${c.name} himoyalangan — teskari proksi, to'xtatib bo'lmaydi`;
+  }
+  if (action === "start" && c.state === "running") return "Allaqachon ishlayapti";
+  if (action === "stop" && c.state !== "running") return "Ishlamayapti";
+  return "";
+}
 
 export default function Docker() {
   const { data, isLoading, error, refetch } = useDockerQuery(undefined, {
     pollingInterval: 15000,
   });
+  const [act] = useDockerActionMutation();
+  const { ask, props, result, clearResult } = useAction();
 
   if (isLoading) return <Loading label="docker stats o'lchanmoqda…" />;
   if (error) return <ErrorBox error={error} onRetry={refetch} />;
 
   const { containers, images, usage, running, total, stopped, cpuTotal } = data;
+
+  const askContainer = (name, action) =>
+    ask({
+      ...containerPlan(name, action),
+      run: () => act({ nom: name, amal: action }).unwrap(),
+    });
 
   return (
     <>
@@ -46,17 +77,36 @@ export default function Docker() {
         </div>
       </div>
 
-      <Card title="Konteynerlar" sub="docker ps · docker stats">
+      {result && (
+        <Note kind="ok" action={<button className="btn sm" onClick={clearResult}>yopish</button>}>
+          {result.text}
+        </Note>
+      )}
+
+      <Card
+        title="Konteynerlar"
+        sub="docker ps · docker stats"
+        action={<span className="cap">caddy to'xtatilmaydi — faqat restart</span>}
+      >
         {containers.length === 0 ? (
           <Empty title="Konteyner yo'q" />
         ) : (
           <Rows
             cols={COLS}
-            head={["konteyner", "holat", "obraz", "cpu", "xotira", "portlar", "net i/o"]}
+            head={["konteyner", "holat", "obraz", "cpu", "xotira", "portlar",
+                   { label: "amallar", right: true }]}
           >
             {containers.map((c) => (
               <Row cols={COLS} key={c.id} title={c.status}>
-                <Two top={c.name} bottom={`${c.id} · ${c.project || "—"}`} />
+                <Two
+                  top={
+                    <>
+                      {isProtected(c.name) && <span style={{ color: "var(--warn)" }}>● </span>}
+                      {c.name}
+                    </>
+                  }
+                  bottom={`${c.id} · ${c.project || "—"}`}
+                />
                 <State kind={c.state === "running" ? "ok" : c.state === "exited" ? "err" : "warn"}>
                   {c.state}
                 </State>
@@ -74,7 +124,22 @@ export default function Docker() {
                 <span className="mono ellipsis" style={{ fontSize: 10 }}>
                   {c.ports || "—"}
                 </span>
-                <span className="mono muted" style={{ fontSize: 10 }}>{c.netIo || "—"}</span>
+                <span className="acts">
+                  {ACTIONS.map((a) => {
+                    const why = blockedWhy(c, a);
+                    return (
+                      <button
+                        key={a}
+                        className={`btn sm ${a === "stop" ? "err" : a === "start" ? "ok" : ""}`}
+                        disabled={Boolean(why)}
+                        title={why || `docker ${a} ${c.name}`}
+                        onClick={() => askContainer(c.name, a)}
+                      >
+                        {a}
+                      </button>
+                    );
+                  })}
+                </span>
               </Row>
             ))}
           </Rows>
@@ -118,6 +183,8 @@ export default function Docker() {
           </Rows>
         </Card>
       </div>
+
+      <Confirm {...props} />
     </>
   );
 }

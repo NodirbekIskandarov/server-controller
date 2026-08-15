@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { JAILS } from '../common/limits';
 import { ShellService } from '../common/shell.service';
+import { TtlCache } from '../common/ttl-cache';
 
 export interface AttackSource {
   ip: string;
@@ -20,16 +22,32 @@ export interface AttackKind {
 /**
  * Hujumlarni auth.log va fail2ban ma'lumotidan yig'adi.
  *
- * Bu yerdagi hamma narsa faqat O'QISH. Bloklash yoki blokdan chiqarish
- * yo'q — panel buzib kirilsa u orqali serverga ta'sir o'tkazib
- * bo'lmasligi kerak.
+ * Bu yerda faqat O'QISH. Bloklash va blokdan chiqarish `ControlService`
+ * da — chegara tekshiruvlari (o'z manzilini bloklamaslik, xususiy
+ * diapazonlar) bitta joyda turishi uchun.
  */
 @Injectable()
 export class SecurityService {
   private cache: { at: number; data: any } | null = null;
   private readonly CACHE_MS = 20_000;
 
+  /**
+   * `ufw status`, `sshd -T` va `fail2ban-client status` — uchalasi ham
+   * alohida jarayon ochadi va uchalasi ham real vaqt tsiklidan har 2
+   * soniyada chaqirilardi. Bu qiymatlar esa soatlab o'zgarmaydi:
+   * firewall qoidasi yoki sshd sozlamasi o'z-o'zidan almashmaydi.
+   * Yozish amalidan keyin kesh `invalidate()` bilan tashlanadi, ya'ni
+   * o'zgarish darhol ko'rinadi.
+   */
+  private readonly slow = new TtlCache<any>(30_000);
+
   constructor(private readonly shell: ShellService) {}
+
+  /** Ban/unban yoki ufw o'zgarishidan keyin chaqiriladi. */
+  invalidate() {
+    this.slow.clear();
+    this.cache = null;
+  }
 
   private async authLog(lines = 4000): Promise<string[]> {
     // journald va rsyslog — ikkalasi ham bo'lishi mumkin.
@@ -51,28 +69,68 @@ export class SecurityService {
   }
 
   async bannedIps(): Promise<string[]> {
-    const out = await this.shell.exec('fail2ban-client', ['status', 'sshd']);
-    const m = /Banned IP list:\s*(.*)/.exec(out);
-    return m ? m[1].trim().split(/\s+/).filter(Boolean) : [];
+    const status = await this.fail2banStatus();
+    return status.bannedIps;
   }
 
   async fail2banStatus() {
-    const out = await this.shell.exec('fail2ban-client', ['status', 'sshd']);
-    const num = (label: string) =>
-      Number(new RegExp(`${label}:\\s*(\\d+)`).exec(out)?.[1] || 0);
-    const active = (await this.shell.exec('systemctl', ['is-active', 'fail2ban']))
-      .trim();
+    return this.slow.get('f2b', () => this.readFail2ban());
+  }
+
+  /**
+   * Uchala jail bo'yicha yig'ma holat.
+   *
+   * Ilgari faqat `sshd` o'qilardi — panelning o'z jail'lari
+   * (`panel-sc`, `panel-admin`) bloklagan manzillar hech qayerda
+   * ko'rinmasdi, ya'ni panel o'zini himoya qilayotganini ko'rsata
+   * olmasdi.
+   */
+  private async readFail2ban() {
+    const running =
+      (await this.shell.exec('systemctl', ['is-active', 'fail2ban'])).trim() ===
+      'active';
+
+    const jails: {
+      name: string; currentlyFailed: number; totalFailed: number;
+      currentlyBanned: number; totalBanned: number; bannedIps: string[];
+    }[] = [];
+
+    for (const name of JAILS) {
+      const out = await this.shell.exec('fail2ban-client', ['status', name]);
+      if (!out.trim()) continue; // jail sozlanmagan — jim o'tkazamiz
+      const num = (label: string) =>
+        Number(new RegExp(`${label}:\\s*(\\d+)`).exec(out)?.[1] || 0);
+      const list = /Banned IP list:\s*(.*)/.exec(out)?.[1]?.trim() || '';
+      jails.push({
+        name,
+        currentlyFailed: num('Currently failed'),
+        totalFailed: num('Total failed'),
+        currentlyBanned: num('Currently banned'),
+        totalBanned: num('Total banned'),
+        bannedIps: list ? list.split(/\s+/).filter(Boolean) : [],
+      });
+    }
+
+    const sum = (key: 'currentlyFailed' | 'totalFailed' | 'currentlyBanned' | 'totalBanned') =>
+      jails.reduce((acc, j) => acc + j[key], 0);
+
     return {
-      running: active === 'active',
-      currentlyFailed: num('Currently failed'),
-      totalFailed: num('Total failed'),
-      currentlyBanned: num('Currently banned'),
-      totalBanned: num('Total banned'),
-      bannedIps: await this.bannedIps(),
+      running,
+      currentlyFailed: sum('currentlyFailed'),
+      totalFailed: sum('totalFailed'),
+      currentlyBanned: sum('currentlyBanned'),
+      totalBanned: sum('totalBanned'),
+      // Bir manzil bir necha jail'da bo'lishi mumkin — takrorlanmasin.
+      bannedIps: [...new Set(jails.flatMap((j) => j.bannedIps))],
+      jails,
     };
   }
 
   async firewall() {
+    return this.slow.get('ufw', () => this.readFirewall());
+  }
+
+  private async readFirewall() {
     const out = await this.shell.exec('ufw', ['status', 'verbose']);
     const rules = this.shell
       .lines(out)
@@ -86,6 +144,10 @@ export class SecurityService {
   }
 
   async sshConfig() {
+    return this.slow.get('ssh', () => this.readSshConfig());
+  }
+
+  private async readSshConfig() {
     const out = await this.shell.exec('sshd', ['-T']);
     const value = (key: string) =>
       new RegExp(`^${key}\\s+(.+)$`, 'm').exec(out)?.[1]?.trim() || '';

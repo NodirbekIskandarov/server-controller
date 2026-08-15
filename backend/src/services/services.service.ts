@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { UNIT_RE, isProtectedUnit } from '../common/limits';
 import { ShellService } from '../common/shell.service';
+import { TtlCache } from '../common/ttl-cache';
 
 export interface Unit {
   name: string;
@@ -10,6 +12,8 @@ export interface Unit {
   memoryMb: number | null;
   since: string | null;
   restarts: number;
+  /** Panel bu unitni to'xtata oladimi — chegaralar limits.ts da. */
+  protected: boolean;
 }
 
 /** Foydalanuvchining o'z loyihalari — ular tepada ko'rsatiladi. */
@@ -17,7 +21,63 @@ const OWN = /^(tanga|server-controller|gym|kino|teacher|portfolio)/;
 
 @Injectable()
 export class ServicesService {
+  /**
+   * Nega kesh kerak edi.
+   *
+   * `summary()` real vaqt tsiklidan har 2 soniyada chaqirilardi va har
+   * chaqiruvda har bir unit uchun ALOHIDA `systemctl show` ishga
+   * tushardi: 183 xizmat + 18 taymer = har 2 soniyada ~200 jarayon.
+   * Natijada serverda eng ko'p CPU yeydigan jarayon `systemd` ning
+   * o'zi bo'lib qolgan edi (~12%) — ya'ni kuzatuv paneli kuzatayotgan
+   * narsasini o'zi yuklab turardi.
+   *
+   * Ikkita tuzatish birga ishlaydi: bu kesh chaqiruvlar SONINI, batafsil
+   * `show()` esa bitta chaqiruvning NARXINI kamaytiradi.
+   */
+  private readonly cache = new TtlCache<any>(45_000);
+
   constructor(private readonly shell: ShellService) {}
+
+  /** Yozish amalidan keyin panel eski holatni ko'rsatib turmasin. */
+  invalidate() {
+    this.cache.clear();
+  }
+
+  /**
+   * Bir necha unitning xossalarini BITTA `systemctl show` bilan o'qiydi.
+   *
+   * systemd har unit uchun `Kalit=qiymat` bloki beradi, bloklar orasi
+   * bo'sh qator. Natija argumentlar tartibida keladi, lekin biz uni
+   * TARTIB bo'yicha emas, `Id=` bo'yicha bog'laymiz: mavjud bo'lmagan
+   * unit uchun ham blok qaytadi va bitta siljish butun jadvalni
+   * boshqa xizmatning ma'lumoti bilan to'ldirib qo'yardi.
+   */
+  private async show(
+    units: string[],
+    properties: string[],
+  ): Promise<Map<string, Record<string, string>>> {
+    const byUnit = new Map<string, Record<string, string>>();
+    // Nomlar systemd'ning o'zidan keladi, lekin `-` bilan boshlangan
+    // qiymat argument emas, bayroq bo'lib qolishini tekshirib qo'yamiz.
+    const names = units.filter((n) => UNIT_RE.test(n));
+    if (!names.length) return byUnit;
+
+    const out = await this.shell.exec(
+      'systemctl',
+      ['show', ...names, `--property=Id,${properties.join(',')}`],
+      30_000,
+    );
+
+    for (const block of out.split('\n\n')) {
+      const props: Record<string, string> = {};
+      for (const line of block.split('\n')) {
+        const eq = line.indexOf('=');
+        if (eq > 0) props[line.slice(0, eq)] = line.slice(eq + 1);
+      }
+      if (props.Id) byUnit.set(props.Id, props);
+    }
+    return byUnit;
+  }
 
   async list(): Promise<Unit[]> {
     const out = await this.shell.exec('systemctl', [
@@ -25,7 +85,9 @@ export class ServicesService {
       '--plain',
     ]);
 
-    const units: Unit[] = [];
+    // Avval ro'yxat filtrlanadi, keyin BITTA `show` — filtrdan o'tmagan
+    // xizmat uchun umuman so'ramaymiz.
+    const rows: { name: string; load: string; active: string; sub: string; rest: string }[] = [];
     for (const line of this.shell.lines(out)) {
       const parts = line.split(/\s+/);
       const name = parts[0];
@@ -35,28 +97,31 @@ export class ServicesService {
 
       const [load, active, sub] = parts.slice(1, 4);
       if (active === 'inactive' && sub === 'dead' && !OWN.test(name)) continue;
+      rows.push({ name, load, active, sub, rest: parts.slice(4).join(' ') });
+    }
 
-      const props = await this.shell.exec('systemctl', [
-        'show', name,
-        '--property=Description', '--property=MemoryCurrent',
-        '--property=ActiveEnterTimestamp', '--property=NRestarts',
-      ]);
-      const value = (key: string) =>
-        new RegExp(`^${key}=(.*)$`, 'm').exec(props)?.[1] || '';
+    const props = await this.show(
+      rows.map((r) => r.name),
+      ['Description', 'MemoryCurrent', 'ActiveEnterTimestamp', 'NRestarts'],
+    );
 
-      const memory = Number(value('MemoryCurrent'));
+    const units: Unit[] = [];
+    for (const row of rows) {
+      const p = props.get(row.name) || {};
+      const memory = Number(p.MemoryCurrent);
       units.push({
-        name,
-        description: value('Description') || parts.slice(4).join(' '),
-        load,
-        active,
-        sub,
+        name: row.name,
+        description: p.Description || row.rest,
+        load: row.load,
+        active: row.active,
+        sub: row.sub,
         memoryMb:
           Number.isFinite(memory) && memory > 0
             ? Math.round(memory / 1024 / 1024)
             : null,
-        since: value('ActiveEnterTimestamp') || null,
-        restarts: Number(value('NRestarts')) || 0,
+        since: p.ActiveEnterTimestamp || null,
+        restarts: Number(p.NRestarts) || 0,
+        protected: isProtectedUnit(row.name),
       });
     }
 
@@ -88,9 +153,8 @@ export class ServicesService {
    * `list-timers` chiqishi ustunlarga bo'linmaydi: ba'zi maydonlar
    * ichida bo'shliq bor («2min 20s ago», «Fri 2026-08-14 16:20:00
    * CEST») va ular bir-biriga yopishib qoladi. Shuning uchun ro'yxatni
-   * `list-units` dan olib, har bir taymerning aniq qiymatlarini
-   * `systemctl show` bilan so'raymiz — bu yerda maydonlar nomlangan va
-   * chalkashish imkoni yo'q.
+   * `list-units` dan olib, aniq qiymatlarni `systemctl show` bilan
+   * so'raymiz — bu yerda maydonlar nomlangan va chalkashish imkoni yo'q.
    */
   async timers() {
     const listing = await this.shell.exec('systemctl', [
@@ -103,26 +167,24 @@ export class ServicesService {
       .map((l) => l.split(/\s+/)[0])
       .filter((n) => n?.endsWith('.timer'));
 
+    // 18 ta taymer = 18 ta jarayon edi. Endi bitta.
+    const props = await this.show(names, [
+      'Unit', 'NextElapseUSecRealtime', 'LastTriggerUSec', 'Description',
+    ]);
+
     const rows: {
       unit: string; activates: string; description: string;
       nextAt: string | null; lastAt: string | null;
       next: string; left: string; last: string; passed: string;
     }[] = [];
     for (const unit of names) {
-      const props = await this.shell.exec('systemctl', [
-        'show', unit,
-        '--property=Unit', '--property=NextElapseUSecRealtime',
-        '--property=LastTriggerUSec', '--property=Description',
-      ]);
-      const value = (key: string) =>
-        new RegExp(`^${key}=(.*)$`, 'm').exec(props)?.[1]?.trim() || '';
-
-      const next = this.stamp(value('NextElapseUSecRealtime'));
-      const last = this.stamp(value('LastTriggerUSec'));
+      const p = props.get(unit) || {};
+      const next = this.stamp((p.NextElapseUSecRealtime || '').trim());
+      const last = this.stamp((p.LastTriggerUSec || '').trim());
       rows.push({
         unit,
-        activates: value('Unit') || unit.replace(/\.timer$/, '.service'),
-        description: value('Description'),
+        activates: p.Unit || unit.replace(/\.timer$/, '.service'),
+        description: p.Description || '',
         nextAt: next?.toISOString() || null,
         lastAt: last?.toISOString() || null,
         next: next ? ServicesService.human(next) : '—',
@@ -204,7 +266,12 @@ export class ServicesService {
     return jobs;
   }
 
+  /** Keshlangan — sabab yuqoridagi `cache` izohida. */
   async summary() {
+    return this.cache.get('summary', () => this.buildSummary());
+  }
+
+  private async buildSummary() {
     const [units, timers, cron] = await Promise.all([
       this.list(),
       this.timers().catch(() => []),
@@ -217,6 +284,8 @@ export class ServicesService {
       units,
       timers,
       cron,
+      /** Ma'lumot qachon o'lchangan — panel «bu eski» deb ko'rsata olsin. */
+      measuredAt: new Date().toISOString(),
     };
   }
 }

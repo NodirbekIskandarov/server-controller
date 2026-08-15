@@ -15,6 +15,8 @@ import Deploy from "./pages/Deploy";
 import Logs from "./pages/Logs";
 import AlertsPage from "./pages/AlertsPage";
 import Billing from "./pages/Billing";
+import Audit from "./pages/Audit";
+import Files from "./pages/Files";
 
 export default function App() {
   useSessionQuery();
@@ -42,6 +44,8 @@ export default function App() {
         <Route path="/loglar" element={<Logs />} />
         <Route path="/deploy" element={<Deploy />} />
         <Route path="/alertlar" element={<AlertsPage />} />
+        <Route path="/fayllar" element={<Files />} />
+        <Route path="/audit" element={<Audit />} />
         <Route path="/tolov" element={<Billing />} />
 
         {/* Eski manzil — havolalar buzilmasin. */}

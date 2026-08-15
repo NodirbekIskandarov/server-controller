@@ -463,6 +463,73 @@ select.field { padding: 6px 8px; }
 .spark, .bigchart { width: 100%; display: block; }
 
 /* --------------------------------------------------------------------- *
+ * Tasdiqlash oynasi
+ * --------------------------------------------------------------------- */
+
+.modal-wrap {
+  position: fixed; inset: 0; z-index: 40; padding: 24px;
+  display: flex; align-items: center; justify-content: center;
+  /* Fon qorayadi — orqadagi jadval bilan ishlab bo'lmasligi ko'rinsin. */
+  background: rgba(0, 0, 0, 0.55);
+}
+.modal {
+  width: 460px; max-width: 100%; max-height: 90vh; overflow: auto;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+  display: flex; flex-direction: column;
+}
+.modal-head {
+  display: flex; align-items: center; gap: 9px; padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-head .h { font-size: 13px; font-weight: 600; }
+.modal-body {
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.modal-body .what {
+  margin: 0; font-size: 13px; line-height: 1.55; color: var(--fg2);
+  text-wrap: pretty;
+}
+.modal-foot {
+  display: flex; justify-content: flex-end; gap: 9px; padding: 13px 16px;
+  border-top: 1px solid var(--line); background: var(--head);
+}
+
+/* Jadval qatoridagi amal tugmalari */
+.acts { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+.acts .btn.sm { padding: 4px 8px; font-size: 10px; }
+/* Taqiqlangan amal ko'rinib tursin, lekin bosilmasin — nega taqiqlangani
+   `title` da yozilgan. */
+.acts .btn.sm[disabled] { opacity: 0.3; }
+
+/* --------------------------------------------------------------------- *
+ * Fayl tahriri
+ * --------------------------------------------------------------------- */
+
+.tree { display: flex; flex-direction: column; max-height: 480px; overflow: auto; }
+.tree .item {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) 74px;
+  gap: 9px; align-items: center; padding: 7px 13px; width: 100%;
+  text-align: left; background: transparent; border: none; color: inherit;
+  border-bottom: 1px solid var(--line2); font-size: 12px;
+}
+.tree .item:last-child { border-bottom: none; }
+.tree .item:hover { background: var(--hover); }
+.tree .item.on { background: var(--sel); }
+.tree .item .ic { font-family: var(--mono); font-size: 10px; color: var(--muted2); }
+.tree .item .sz {
+  font-family: var(--mono); font-size: 9.5px; color: var(--faint); text-align: right;
+}
+.tree .item[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.editor {
+  width: 100%; min-height: 420px; resize: vertical; padding: 12px 14px;
+  border: none; border-radius: 0; background: var(--panel2); color: var(--fg2);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.65;
+  outline: none; tab-size: 2; white-space: pre; overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+/* --------------------------------------------------------------------- *
  * Kirish sahifasi
  * --------------------------------------------------------------------- */
 

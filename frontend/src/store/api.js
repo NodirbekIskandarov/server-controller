@@ -19,7 +19,7 @@ export const api = createApi({
   baseQuery: withAuth,
   tagTypes: [
     "Session", "Projects", "Docker", "Services", "Security", "Traffic",
-    "Deploy", "Billing",
+    "Deploy", "Billing", "Audit", "Ufw", "Files", "File",
   ],
   // Kuzatuv panelida ma'lumot eskirmasligi kerak.
   keepUnusedDataFor: 30,
@@ -61,6 +61,70 @@ export const api = createApi({
       }),
       invalidatesTags: ["Deploy"],
     }),
+
+    // ---- Boshqaruv (yozish amallari) ----------------------------------
+    // Har bir mutatsiya o'zi tegadigan ro'yxatni ham, audit jurnalini ham
+    // bekor qiladi: amaldan keyin ekranda eski holat qolib ketmasin.
+
+    /** Himoya chegaralari — tugmalarni oldindan bloklash uchun. */
+    limits: build.query({ query: () => "/control/limits" }),
+
+    serviceAction: build.mutation({
+      query: ({ unit, amal }) => ({
+        url: "/control/service",
+        method: "POST",
+        body: { unit, amal },
+      }),
+      invalidatesTags: ["Services", "Audit"],
+    }),
+    dockerAction: build.mutation({
+      query: ({ nom, amal }) => ({
+        url: "/control/docker",
+        method: "POST",
+        body: { nom, amal },
+      }),
+      invalidatesTags: ["Docker", "Audit"],
+    }),
+    fail2ban: build.mutation({
+      query: ({ amal, jail, ip }) => ({
+        url: "/control/fail2ban",
+        method: "POST",
+        body: { amal, jail, ip },
+      }),
+      invalidatesTags: ["Security", "Audit"],
+    }),
+
+    ufwRules: build.query({ query: () => "/control/ufw", providesTags: ["Ufw"] }),
+    ufwAdd: build.mutation({
+      query: (body) => ({ url: "/control/ufw", method: "POST", body }),
+      invalidatesTags: ["Ufw", "Security", "Audit"],
+    }),
+    ufwDelete: build.mutation({
+      query: (number) => ({ url: `/control/ufw/${number}`, method: "DELETE" }),
+      invalidatesTags: ["Ufw", "Security", "Audit"],
+    }),
+
+    audit: build.query({
+      query: ({ limit = 200, amal = "" } = {}) =>
+        `/audit?qator=${limit}${amal ? `&amal=${encodeURIComponent(amal)}` : ""}`,
+      providesTags: ["Audit"],
+    }),
+
+    // ---- Fayllar -----------------------------------------------------
+    fileList: build.query({
+      query: (path) => (path ? `/files/list?yol=${encodeURIComponent(path)}` : "/files/list"),
+      providesTags: ["Files"],
+    }),
+    file: build.query({
+      query: (path) => `/files?yol=${encodeURIComponent(path)}`,
+      providesTags: ["File"],
+    }),
+    saveFile: build.mutation({
+      query: ({ yol, matn }) => ({ url: "/files", method: "POST", body: { yol, matn } }),
+      // Fayllar ro'yxati ham yangilanadi — zaxira nusxa yangi fayl sifatida
+      // paydo bo'ladi.
+      invalidatesTags: ["File", "Files", "Audit"],
+    }),
   }),
 });
 
@@ -70,4 +134,9 @@ export const {
   useServiceLogsQuery, useSecurityQuery, useTrafficQuery,
   useBillingQuery,
   useDeployListQuery, useTriggerDeployMutation,
+  useLimitsQuery,
+  useServiceActionMutation, useDockerActionMutation, useFail2banMutation,
+  useUfwRulesQuery, useUfwAddMutation, useUfwDeleteMutation,
+  useAuditQuery,
+  useFileListQuery, useFileQuery, useSaveFileMutation,
 } = api;

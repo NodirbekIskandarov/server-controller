@@ -22,6 +22,12 @@ import { DeployService } from './deploy/deploy.service';
 import { DeployController } from './deploy/deploy.controller';
 import { LogsService } from './logs/logs.service';
 import { LogsController } from './logs/logs.controller';
+import { AuditService } from './audit/audit.service';
+import { AuditController } from './audit/audit.controller';
+import { ControlService } from './control/control.service';
+import { ControlController } from './control/control.controller';
+import { FilesService } from './files/files.service';
+import { FilesController } from './files/files.controller';
 import { AppController } from './app.controller';
 
 @Module({
@@ -50,6 +56,9 @@ import { AppController } from './app.controller';
     RealtimeController,
     DeployController,
     LogsController,
+    ControlController,
+    FilesController,
+    AuditController,
   ],
   providers: [
     ShellService,
@@ -64,6 +73,9 @@ import { AppController } from './app.controller';
     DeployService,
     LogsService,
     AuthService,
+    AuditService,
+    ControlService,
+    FilesService,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

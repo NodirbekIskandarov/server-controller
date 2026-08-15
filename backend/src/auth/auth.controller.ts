@@ -16,9 +16,27 @@ class LoginDto {
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  /**
+   * Haqiqiy mijoz manzili.
+   *
+   * `X-Forwarded-For` ni qo'lda o'qish MUMKIN EMAS: Caddy bu sarlavhani
+   * almashtirmaydi, oxiriga qo'shib qo'yadi. Hujumchi
+   * `X-Forwarded-For: 1.2.3.4` yuborsa, Caddy uni
+   * `1.2.3.4, <haqiqiy-ip>` ga aylantiradi — ya'ni BIRINCHI qiymat
+   * hujumchining o'zi yozgan matn bo'ladi.
+   *
+   * Oqibati og'ir edi: har so'rovda boshqa soxta manzil yuborilsa 5 ta
+   * urinish chegarasi hech qachon to'lmaydi (parolni cheksiz tanlash), va
+   * fail2ban o'qiydigan «KIRISH XATO» qatoriga ham soxta manzil tushib,
+   * hujumchi istalgan IP'ni — shu jumladan sizniki — bloklatib yuborishi
+   * mumkin edi.
+   *
+   * `req.ip` esa Express'ning `trust proxy` sozlamasini hisobga oladi:
+   * u ro'yxatni O'NGDAN sanaydi va faqat ishonchli proxy qo'ygan qiymatni
+   * oladi. main.ts da `trust proxy = 1` — bitta Caddy.
+   */
   private ip(req: Request): string {
-    const fwd = (req.headers['x-forwarded-for'] as string) || '';
-    return fwd.split(',')[0].trim() || req.socket.remoteAddress || '';
+    return req.ip || req.socket.remoteAddress || '';
   }
 
   @Public()

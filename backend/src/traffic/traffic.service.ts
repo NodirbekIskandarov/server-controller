@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ShellService } from '../common/shell.service';
+import { TtlCache } from '../common/ttl-cache';
 
 export interface DomainStat {
   domain: string;
@@ -19,8 +20,15 @@ export interface DomainStat {
  */
 @Injectable()
 export class TrafficService {
-  private cache: { at: number; data: any } | null = null;
-  private readonly CACHE_MS = 15_000;
+  /**
+   * Kesh kaliti — SO'RALGAN DAVR.
+   *
+   * Ilgari kesh bitta bo'lgan va `minutes` ni hisobga olmasdi: «15
+   * daqiqa» ko'rilgandan keyin «1 kun» tanlansa, 15 soniya davomida
+   * o'sha 15 daqiqalik ma'lumot qaytardi. Foydalanuvchi uchun bu
+   * «tugma ishlamayapti» degani, aslida esa kesh javob berayotgan edi.
+   */
+  private readonly cache = new TtlCache<any>(15_000);
 
   constructor(private readonly shell: ShellService) {}
 
@@ -37,10 +45,10 @@ export class TrafficService {
   }
 
   async stats(minutes = 60) {
-    if (this.cache && Date.now() - this.cache.at < this.CACHE_MS) {
-      return this.cache.data;
-    }
+    return this.cache.get(`stats:${minutes}`, () => this.build(minutes));
+  }
 
+  private async build(minutes: number) {
     const container = await this.caddyContainer();
     if (!container) {
       return this.empty('Caddy konteyneri topilmadi');
@@ -169,7 +177,6 @@ export class TrafficService {
       certificates: await this.certificates(),
     };
 
-    this.cache = { at: Date.now(), data };
     return data;
   }
 

@@ -1,14 +1,18 @@
 import { useState } from "react";
-import { useServicesQuery } from "../store/api";
+import { useServiceActionMutation, useServicesQuery } from "../store/api";
 import { useTail, parseLine } from "../components/useTail";
+import { useAction } from "../components/useAction";
+import Confirm from "../components/Confirm";
 import {
-  Card, Empty, ErrorBox, Loading, Row, Rows, State, Two,
+  Card, Empty, ErrorBox, Loading, Note, Row, Rows, State,
 } from "../components/common";
-import { dt } from "../lib/format";
+import { unitPlan } from "../lib/consequence";
 
-const UNIT_COLS = "minmax(160px,1.4fr) 90px 90px 84px minmax(0,1fr) 90px";
+const UNIT_COLS = "minmax(160px,1.3fr) 88px 82px 74px minmax(0,1fr) 214px";
 const TIMER_COLS = "minmax(150px,1.2fr) 130px 110px 110px minmax(0,1fr)";
 const CRON_COLS = "minmax(120px,0.8fr) 130px minmax(0,1.6fr)";
+
+const ACTIONS = ["start", "stop", "restart", "reload"];
 
 function unitKind(u) {
   if (u.active === "active") return "ok";
@@ -17,10 +21,28 @@ function unitKind(u) {
   return "grey";
 }
 
+/**
+ * Amal shu unit uchun mumkinmi.
+ *
+ * Chegara serverda ham tekshiriladi — bu yerdagisi tugmani oldindan
+ * o'chirib qo'yish uchun: bosilgach «taqiqlangan» deb javob beradigan
+ * tugma foydalanuvchini aldaydi.
+ */
+function blockedWhy(unit, action) {
+  if (action === "stop" && unit.protected) {
+    return `${unit.name} himoyalangan — to'xtatib bo'lmaydi, faqat restart`;
+  }
+  if (action === "start" && unit.active === "active") return "Allaqachon ishlayapti";
+  if (action === "stop" && unit.active !== "active") return "Ishlamayapti";
+  return "";
+}
+
 export default function Services() {
   const { data, isLoading, error, refetch } = useServicesQuery(undefined, {
     pollingInterval: 20000,
   });
+  const [act] = useServiceActionMutation();
+  const { ask, props, result, clearResult } = useAction();
   const [unit, setUnit] = useState(null);
   const { lines, live } = useTail({
     kind: "xizmat", name: unit || "", limit: 120, enabled: Boolean(unit),
@@ -30,6 +52,12 @@ export default function Services() {
   if (error) return <ErrorBox error={error} onRetry={refetch} />;
 
   const { units, timers, cron, running, failed, total } = data;
+
+  const askUnit = (name, action) =>
+    ask({
+      ...unitPlan(name, action),
+      run: () => act({ unit: name, amal: action }).unwrap(),
+    });
 
   return (
     <>
@@ -60,24 +88,58 @@ export default function Services() {
         </div>
       </div>
 
-      <Card title="Xizmatlar" sub="systemctl list-units">
+      {result && (
+        <Note kind="ok" action={<button className="btn sm" onClick={clearResult}>yopish</button>}>
+          {result.text}
+        </Note>
+      )}
+
+      <Card
+        title="Xizmatlar"
+        sub="systemctl list-units"
+        action={
+          <span className="cap">
+            himoyalangan unitlar to'xtatilmaydi — faqat restart
+          </span>
+        }
+      >
         <Rows cols={UNIT_COLS}
-              head={["unit", "holat", "xotira", "restart", "tavsif", ""]}>
+              head={["unit", "holat", "xotira", "restart", "tavsif",
+                     { label: "amallar", right: true }]}>
           {units.map((u) => (
             <Row cols={UNIT_COLS} key={u.name} active={unit === u.name}>
-              <span className="mono ellipsis">{u.name}</span>
+              <span className="mono ellipsis" title={u.protected ? "himoyalangan" : undefined}>
+                {u.protected && <span style={{ color: "var(--warn)" }}>● </span>}
+                {u.name}
+              </span>
               <State kind={unitKind(u)}>{u.active}</State>
               <span className="mono">{u.memoryMb != null ? `${u.memoryMb} MB` : "—"}</span>
               <span className="mono" style={{ color: u.restarts ? "var(--warn)" : undefined }}>
                 {u.restarts}
               </span>
               <span className="muted ellipsis">{u.description}</span>
-              <button
-                className="btn sm"
-                onClick={() => setUnit(unit === u.name ? null : u.name)}
-              >
-                {unit === u.name ? "yopish" : "loglar"}
-              </button>
+              <span className="acts">
+                {ACTIONS.map((a) => {
+                  const why = blockedWhy(u, a);
+                  return (
+                    <button
+                      key={a}
+                      className={`btn sm ${a === "stop" ? "err" : a === "start" ? "ok" : ""}`}
+                      disabled={Boolean(why)}
+                      title={why || `systemctl ${a} ${u.name}`}
+                      onClick={() => askUnit(u.name, a)}
+                    >
+                      {a}
+                    </button>
+                  );
+                })}
+                <button
+                  className="btn sm"
+                  onClick={() => setUnit(unit === u.name ? null : u.name)}
+                >
+                  {unit === u.name ? "yopish" : "log"}
+                </button>
+              </span>
             </Row>
           ))}
         </Rows>
@@ -139,6 +201,8 @@ export default function Services() {
           </Rows>
         )}
       </Card>
+
+      <Confirm {...props} />
     </>
   );
 }

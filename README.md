@@ -21,12 +21,28 @@ xizmatlar, hujumlar va trafik.
 | **Trafik** | Domenlar bo'yicha so'rovlar, javob kodlari, eng ko'p so'rov yuborgan IP'lar, ochiq portlar |
 | **Jonli loglar** | Istalgan systemd xizmati yoki docker konteynerining logi real vaqtda oqadi (`journalctl -f` / `docker logs -f`); matn bo'yicha filtr va pauza |
 | **Joylashtirish** | GitHub'ga push qilinganda avtomatik deploy; loglar jonli oqadi; tarix va qo'lda ishga tushirish tugmasi |
+| **Fayl tahriri** | `/opt`, `/root/projects`, `/etc/caddy` ichidagi matn fayllarini ko'rish va tahrirlash; saqlashdan oldin avtomatik zaxira |
+| **Audit jurnali** | Har bir boshqaruv amali: kim, qachon, nima ustida, natija va davomiylik |
 
 ## Xavfsizlik tamoyili
 
-**Panel faqat o'qiydi.** Konteynerni to'xtatish, IP bloklash, fayl
-o'zgartirish — bularning hech biri yo'q. Panel buzib kirilsa ham u orqali
-serverga ta'sir o'tkazib bo'lmaydi.
+Panel serverni **boshqara oladi**: xizmat va konteynerlarni ishga
+tushirish/to'xtatish, IP bloklash, firewall qoidalari, fayl tahriri. Har
+bir yozish amali `audit.jsonl` ga tushadi — kim, qachon, nima, natija.
+
+Eng muhimi — panel **o'zini o'chira olmaydi**. Chegaralar bitta joyda:
+`backend/src/common/limits.ts`.
+
+| Chegara | Nima taqiqlangan | Nega |
+|---|---|---|
+| Himoyalangan unitlar | `ssh`, `sshd`, `fail2ban`, `docker`, `containerd`, `dbus`, `cron`, `systemd-*`, `server-controller` — **stop** taqiq, restart mumkin | To'xtasa serverga kirish yoki panelni qaytarish yo'li qolmaydi |
+| Himoyalangan konteyner | Nomida `caddy` bori — **stop** taqiq, restart mumkin | Teskari proksi: hamma sayt va panelning o'zi ham o'chadi |
+| fail2ban | So'rov kelgan IP'ni va xususiy diapazonlarni (10.x, 172.16–31.x, 192.168.x, 127.x) bloklab bo'lmaydi | Foydalanuvchi o'zini quloflab qo'ymasin |
+| ufw | `disable` va `reset` mutlaqo yo'q; 22/80/443 ni ochib turgan ALLOW qoidasini o'chirib bo'lmaydi | Bir buyruqda serverni yopib qo'yish imkoni bo'lmasin |
+| Fayllar | Faqat `/opt`, `/root/projects`, `/etc/caddy`; `..` va simvolik havola bilan chiqib bo'lmaydi; 1 MB chegara; ikkilik fayl rad etiladi | Yo'l bilan katalogdan chiqib ketish oldi olinadi |
+
+Yozishdan oldin har fayldan avtomatik zaxira olinadi
+(`<fayl>.bak-<vaqt>`); zaxira olinmasa fayl ham yozilmaydi.
 
 Boshqa himoya qatlamlari:
 
@@ -150,6 +166,14 @@ cd frontend && npm run dev           # http://localhost:5174 (/api proxy bilan)
 ## Nima uchun root ostida ishlaydi
 
 `journalctl`, `docker`, `ufw`, `fail2ban-client` va boshqa
-foydalanuvchilarning kataloglarini o'qish uchun. Bu ongli qaror: ilova
-hech narsani o'zgartirmaydi, systemd cheklovlari esa (`ProtectHome=read-only`,
-`NoNewPrivileges`, `ReadWritePaths`) ta'sir doirasini toraytiradi.
+foydalanuvchilarning kataloglarini o'qish, hamda `systemctl`, `docker`,
+`ufw`, `fail2ban-client` bilan boshqarish uchun.
+
+Bu ongli qaror, lekin ta'sir doirasi ikki tomondan toraytirilgan:
+kodda — `limits.ts` dagi oq ro'yxatlar, tizimda — systemd cheklovlari
+(`NoNewPrivileges`, `ProtectHome=read-only`, `ReadWritePaths` bilan
+sanab chiqilgan yozish yo'llari).
+
+> Boshqaruv qo'shilgandan keyin unit fayli o'zgardi (`ReadWritePaths`
+> kengaydi, `ProtectKernelTunables` olib tashlandi — ufw'ga kerak).
+> Deploy'da uni ko'chirib `systemctl daemon-reload` qilish kerak.
