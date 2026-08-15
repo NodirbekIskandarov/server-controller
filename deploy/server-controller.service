@@ -40,9 +40,9 @@ RestrictSUIDSGID=true
 #   /opt, /root/projects, /etc/caddy — fayl tahriri (limits.ts: FILE_ROOTS)
 #   /etc/ufw, /lib/ufw, /var/lib/ufw — ufw qoidalarni shu yerga yozadi
 #   /etc/fail2ban, /var/lib/fail2ban — ban ro'yxati
-ReadWritePaths=/opt /root/projects /etc/caddy
-ReadWritePaths=/etc/ufw /lib/ufw /var/lib/ufw
-ReadWritePaths=/etc/fail2ban /var/lib/fail2ban
+ReadWritePaths=/opt /root/projects -/etc/caddy
+ReadWritePaths=-/etc/ufw -/lib/ufw -/var/lib/ufw
+ReadWritePaths=-/etc/fail2ban -/var/lib/fail2ban
 
 [Install]
 WantedBy=multi-user.target
