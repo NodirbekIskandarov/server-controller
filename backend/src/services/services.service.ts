@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { UNIT_RE, isProtectedUnit } from '../common/limits';
 import { ShellService } from '../common/shell.service';
 import { TtlCache } from '../common/ttl-cache';
+import { LogsService } from '../logs/logs.service';
 
 export interface Unit {
   name: string;
@@ -144,7 +145,9 @@ export class ServicesService {
       '-u', unit, '--no-pager', '-n', String(Math.min(lines, 500)),
       '--output=short-iso',
     ]);
-    return this.shell.lines(out);
+    // Jonli oqim bilan bir xil: logga tushib qolgan token yoki kalit
+    // brauzerga chiqmasin.
+    return this.shell.lines(out).map((l) => LogsService.redact(l));
   }
 
   /**

@@ -20,13 +20,44 @@ export class LogsService {
   private readonly UNIT = /^[a-zA-Z0-9@._-]{1,80}$/;
   private readonly MAX_LINE = 4000;
 
+  /**
+   * Logga tushib qolgan sirlarni yashiradi.
+   *
+   * Panel boshqa odamlarning loyihalari loglarini ham ko'rsatadi va ular
+   * qanday yozishini biz boshqarmaymiz. Masalan `httpx` INFO darajasida
+   * so'rov manzilini yozadi, Telegram esa tokenni aynan manzil ichida
+   * saqlaydi — natijada token brauzerga chiqib ketardi.
+   *
+   * Bu yakuniy himoya emas (log fayl serverda baribir turadi), lekin
+   * panel orqali sirni ko'rish yo'lini yopadi.
+   */
+  private static readonly SECRETS: [RegExp, string][] = [
+    // Telegram bot tokeni: 8800040562:AA...
+    [/\b\d{8,12}:[A-Za-z0-9_-]{30,}/g, '<token-yashirildi>'],
+    // Anthropic / OpenAI kalitlari
+    [/\bsk-[A-Za-z0-9_-]{16,}/g, '<kalit-yashirildi>'],
+    // Authorization sarlavhasi
+    [/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{16,}/gi, '$1 <yashirildi>'],
+    // ?token=... , &password=... , api_key=...
+    [/\b(token|password|passwd|secret|api[_-]?key|access[_-]?key)=([^\s&"']{6,})/gi,
+     '$1=<yashirildi>'],
+    // Ulanish satridagi parol: proto://user:parol@host
+    [/(\w+:\/\/[^:/\s]+):([^@\s]{3,})@/g, '$1:<yashirildi>@'],
+  ];
+
+  static redact(line: string): string {
+    let out = line;
+    for (const [rx, to] of LogsService.SECRETS) out = out.replace(rx, to);
+    return out;
+  }
+
   tail(kind: string, name: string): Observable<MessageEvent> {
     return new Observable<MessageEvent>((subscriber) => {
       const emit = (line: string, stream = 'out') => {
         subscriber.next({
           data: {
             at: new Date().toISOString(),
-            line: line.slice(0, this.MAX_LINE),
+            line: LogsService.redact(line.slice(0, this.MAX_LINE)),
             stream,
           },
         } as MessageEvent);
