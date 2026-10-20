@@ -30,5 +30,5 @@ systemctl is-active tanga tanga-webapp
 
 echo "==> Tekshiruv"
 curl -sS -m 15 -o /dev/null -w "Mini App: HTTP %{http_code}\n" \
-  https://tanga.169-58-23-132.sslip.io/
+  https://app.tangabot.uz/
 echo "Tayyor."

@@ -31,5 +31,5 @@ systemctl is-active tanga-admin
 
 echo "==> Tekshiruv"
 curl -sS -m 15 -o /dev/null -w "Admin panel: HTTP %{http_code}\n" \
-  https://tanga.niskandarov.uz/salomatlik
+  https://admin.tangabot.uz/salomatlik
 echo "Tayyor."
