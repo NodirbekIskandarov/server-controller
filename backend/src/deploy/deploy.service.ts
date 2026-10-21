@@ -64,6 +64,12 @@ export class DeployService {
       aliases: ['hisobchim-admin'],
     },
     {
+      name: 'quiz',
+      path: '/opt/quiz',
+      repo: 'NodirbekIskandarov/quiz',
+      script: '/opt/server-controller/deploy/quiz.sh',
+    },
+    {
       name: 'server-controller',
       path: '/opt/server-controller',
       repo: 'NodirbekIskandarov/server-controller',
